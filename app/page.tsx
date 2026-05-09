@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import ClientForm from '@/components/ClientForm';
 import type { ClientData } from '@/types/client';
 import { calculateClientValues, formatCurrency } from '@/lib/calculations';
@@ -12,9 +12,18 @@ export default function HomePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [newFormKey, setNewFormKey] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'guest' | null>(null);
+  const [guestName, setGuestName] = useState('');
+  const [showLoginModal, setShowLoginModal] = useState(true);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginTab, setLoginTab] = useState<'admin' | 'guest'>('admin');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState<ClientData | null>(null);
+  const [detailClient, setDetailClient] = useState<ClientData | null>(null);
   const [expandedCicilanId, setExpandedCicilanId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -100,6 +109,62 @@ export default function HomePage() {
     handleUpdateCicilan(client._id, updated);
   }
 
+  function handleExportCSV() {
+    if (filteredClients.length === 0) {
+      setError('Tidak ada data untuk diekspor.');
+      return;
+    }
+
+    const headers = [
+      'Nama Klien',
+      'Nama Barang',
+      'Jenis Barang',
+      'Harga Barang',
+      'DP',
+      'Bunga (%)',
+      'Tenor (bulan)',
+      'Tanggal Pembelian',
+      'Cicilan/Bulan',
+      'Sisa Tagihan',
+      'Total Keuntungan',
+      'Status Cicilan',
+    ];
+
+    const rows = filteredClients.map((client) => {
+      const computed = calculateClientValues(client);
+      const paidCount = client.cicilan?.filter((c) => c.sudahBayar).length ?? 0;
+      return [
+        client.namaKlien,
+        client.namaBarang,
+        client.jenisBarang,
+        client.hargaBarang.toString(),
+        client.dp.toString(),
+        client.bunga.toString(),
+        client.tenorBulan.toString(),
+        client.tanggalPembelian,
+        computed.cicilanPerbulan.toString(),
+        computed.sisaTagihan.toString(),
+        computed.totalKeuntungan.toString(),
+        `${paidCount}/${client.tenorBulan}`,
+      ];
+    });
+
+    const csv = [
+      headers.join(','),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `klien-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   async function handleDelete(id: string) {
     if (!confirm('Hapus klien ini?')) return;
 
@@ -128,26 +193,268 @@ export default function HomePage() {
     (sum, client) => sum + (client.cicilan?.filter((c) => c.sudahBayar).length ?? 0),
     0
   );
+  const filteredClients = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return clients.filter((client) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        [client.namaKlien, client.namaBarang, client.jenisBarang]
+          .join(' ')
+          .toLowerCase()
+          .includes(normalizedSearch);
+
+      const isPaid = (client.cicilan?.length ?? 0) > 0 && client.cicilan?.every((c) => c.sudahBayar);
+      const statusMatches =
+        statusFilter === 'all' ||
+        (statusFilter === 'paid' && isPaid) ||
+        (statusFilter === 'unpaid' && !isPaid);
+
+      const isGuestMatch = userRole === 'guest' ? client.namaKlien.toLowerCase().includes(normalizedSearch) : true;
+
+      return matchesSearch && statusMatches && isGuestMatch;
+    });
+  }, [clients, searchTerm, statusFilter, userRole, guestName]);
+
+  function handleAdminLogin() {
+    setLoginError(null);
+    const correctPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin123';
+    if (adminPassword === correctPassword) {
+      setUserRole('admin');
+      setShowLoginModal(false);
+      setAdminPassword('');
+    } else {
+      setLoginError('Password salah.');
+    }
+  }
+
+  function handleGuestLogin() {
+    setLoginError(null);
+    if (!guestName.trim()) {
+      setLoginError('Masukkan nama Anda.');
+      return;
+    }
+    setUserRole('guest');
+    setShowLoginModal(false);
+    setSearchTerm(guestName);
+  }
+
+  function handleLogout() {
+    setUserRole(null);
+    setShowLoginModal(true);
+    setGuestName('');
+    setAdminPassword('');
+    setLoginTab('admin');
+    setSearchTerm('');
+    setStatusFilter('all');
+  }
+
   const totalInstallments = clients.reduce((sum, client) => sum + (client.cicilan?.length ?? 0), 0);
+  const totalOutstanding = clients.reduce((sum, client) => sum + calculateClientValues(client).sisaTagihan, 0);
+  const totalUnpaidInstallments = clients.reduce(
+    (sum, client) => sum + (client.cicilan?.filter((c) => !c.sudahBayar).length ?? 0),
+    0
+  );
   const totalKeuntungan = clients.reduce((sum, client) => sum + calculateClientValues(client).totalKeuntungan, 0);
   const averageTenor = clients.length ? Math.round(clients.reduce((sum, client) => sum + client.tenorBulan, 0) / clients.length) : 0;
 
+  if (showLoginModal) {
+    return (
+      <main className="page-shell">
+        <div className="modal-overlay" style={{ zIndex: 100 }}>
+          <div className="edit-modal" style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Zynext Counter</p>
+                <h2>Masuk ke aplikasi</h2>
+              </div>
+            </div>
+
+            <div className="auth-tabs">
+              <button
+                type="button"
+                className={`auth-tab ${loginTab === 'admin' ? 'active' : ''}`}
+                onClick={() => setLoginTab('admin')}
+              >
+                Admin
+              </button>
+              <button
+                type="button"
+                className={`auth-tab ${loginTab === 'guest' ? 'active' : ''}`}
+                onClick={() => setLoginTab('guest')}
+              >
+                Guest
+              </button>
+            </div>
+
+            <div className="auth-form">
+              {loginError && <div className="alert" style={{ marginBottom: '16px' }}>{loginError}</div>}
+
+              {loginTab === 'admin' ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleAdminLogin();
+                  }}
+                >
+                  <div className="field">
+                    <label htmlFor="adminPassword">Password Admin</label>
+                    <input
+                      id="adminPassword"
+                      type="password"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      placeholder="Masukkan password admin"
+                    />
+                  </div>
+                  <button type="submit" className="primary" style={{ width: '100%', marginTop: '16px' }}>
+                    Masuk sebagai Admin
+                  </button>
+                </form>
+              ) : (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleGuestLogin();
+                  }}
+                >
+                  <div className="field">
+                    <label htmlFor="guestName">Nama Anda</label>
+                    <input
+                      id="guestName"
+                      type="text"
+                      value={guestName}
+                      onChange={(e) => setGuestName(e.target.value)}
+                      placeholder="Masukkan nama lengkap Anda"
+                    />
+                  </div>
+                  <button type="submit" className="primary" style={{ width: '100%', marginTop: '16px' }}>
+                    Masuk sebagai Guest
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="page-shell">
+      {userRole === 'guest' && (
+        <div className="guest-banner">
+          <span>Anda login sebagai Guest: <strong>{searchTerm}</strong></span>
+          <button type="button" className="ghost small" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+      )}
+      {userRole === 'admin' && (
+        <div className="admin-banner">
+          <span>Anda login sebagai Admin</span>
+          <button type="button" className="ghost small" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
+      )}
       <section className="content-grid">
+        {userRole === 'admin' && (
         <div className="panel card-panel">
+          <div className="panel-header">
+            <div>
+              <p className="eyebrow">Detail Aktif</p>
+              <h2>Ringkasan klien</h2>
+            </div>
+          </div>
+
+          <div className="summary-grid">
+            <div className="summary-item">
+              <span>Klien aktif</span>
+              <strong>{clients.length}</strong>
+            </div>
+            <div className="summary-item">
+              <span>Total DP</span>
+              <strong>{formatCurrency(totalDp)}</strong>
+            </div>
+            <div className="summary-item">
+              <span>Total piutang</span>
+              <strong>{formatCurrency(totalOutstanding)}</strong>
+            </div>
+            <div className="summary-item">
+              <span>Cicilan terbayar</span>
+              <strong>{totalPaidInstallments}/{totalInstallments}</strong>
+            </div>
+            <div className="summary-item">
+              <span>Cicilan tersisa</span>
+              <strong>{totalUnpaidInstallments}</strong>
+            </div>
+            <div className="summary-item">
+              <span>Total keuntungan</span>
+              <strong>{formatCurrency(totalKeuntungan)}</strong>
+            </div>
+            <div className="summary-item">
+              <span>Rata-rata tenor</span>
+              <strong>{averageTenor} bulan</strong>
+            </div>
+          </div>
+        </div>
+        )}
+
+        <div className="panel card-panel" style={{ gridColumn: userRole === 'guest' ? '1 / -1' : 'auto' }}>
           <div className="panel-header">
             <div>
               <p className="eyebrow">Daftar Klien</p>
               <h2>Data klien terbaru</h2>
             </div>
-            <button
-              type="button"
-              className="primary"
-              onClick={() => setShowAddModal(true)}
-            >
-              Tambah Data
-            </button>
+            <div className="actions">
+              {userRole === 'admin' && (
+                <>
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => setShowAddModal(true)}
+                  >
+                    Tambah Data
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={handleExportCSV}
+                    title="Export data klien sebagai CSV"
+                  >
+                    Export CSV
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="search-filters">
+            <div className="search-box">
+              <label htmlFor="searchTerm">Cari klien / barang</label>
+              <input
+                id="searchTerm"
+                type="search"
+                placeholder="Cari nama klien, barang, atau jenis"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            {userRole === 'admin' && (
+              <div className="search-box">
+                <label htmlFor="statusFilter">Filter status cicilan</label>
+                <select
+                  id="statusFilter"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as 'all' | 'paid' | 'unpaid')}
+                >
+                  <option value="all">Semua status</option>
+                  <option value="paid">Lunas</option>
+                  <option value="unpaid">Belum lunas</option>
+                </select>
+              </div>
+            )}
           </div>
 
           {error && <div className="alert">{error}</div>}
@@ -156,6 +463,8 @@ export default function HomePage() {
             <div className="loader">Memuat data...</div>
           ) : clients.length === 0 ? (
             <p className="empty-state">Belum ada data klien. Tambahkan klien baru untuk memulai.</p>
+          ) : filteredClients.length === 0 ? (
+            <p className="empty-state">Tidak ada data yang cocok dengan pencarian atau filter.</p>
           ) : (
             <div className="table-wrapper">
               <table className="client-table">
@@ -174,7 +483,7 @@ export default function HomePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {clients.map((client) => {
+                  {filteredClients.map((client) => {
                     const computed = calculateClientValues(client);
                     const paidCount = client.cicilan?.filter((c) => c.sudahBayar).length ?? 0;
                     const isExpanded = expandedCicilanId === client._id;
@@ -192,35 +501,54 @@ export default function HomePage() {
                           <td data-label="Cicilan/Bulan">{formatCurrency(computed.cicilanPerbulan)}</td>
                           <td data-label="Status">{paidCount}/{client.tenorBulan} dibayar</td>
                           <td className="actions-cell" data-label="Aksi">
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => setEditingClient(client)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary"
-                              disabled={deletingId === client._id}
-                              onClick={() => client._id && handleDelete(client._id)}
-                            >
-                              {deletingId === client._id ? (
-                                <>
-                                  <span className="button-spinner" />
-                                  Menghapus...
-                                </>
-                              ) : (
-                                'Hapus'
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary small"
-                              onClick={() => client._id && handleToggleCicilanRow(client._id)}
-                            >
-                              {isExpanded ? 'Tutup Cicilan' : 'Lihat Cicilan'}
-                            </button>
+                            {userRole === 'admin' ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  onClick={() => setDetailClient(client)}
+                                >
+                                  Detail
+                                </button>
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  onClick={() => setEditingClient(client)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  disabled={deletingId === client._id}
+                                  onClick={() => client._id && handleDelete(client._id)}
+                                >
+                                  {deletingId === client._id ? (
+                                    <>
+                                      <span className="button-spinner" />
+                                      Menghapus...
+                                    </>
+                                  ) : (
+                                    'Hapus'
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="secondary small"
+                                  onClick={() => client._id && handleToggleCicilanRow(client._id)}
+                                >
+                                  {isExpanded ? 'Tutup Cicilan' : 'Lihat Cicilan'}
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                className="secondary"
+                                onClick={() => setDetailClient(client)}
+                              >
+                                Detail
+                              </button>
+                            )}
                           </td>
                         </tr>
                         {isExpanded && client.cicilan && (
@@ -278,6 +606,74 @@ export default function HomePage() {
               onCancel={() => setEditingClient(null)}
               isSaving={isSaving}
             />
+          </div>
+        </div>
+      )}
+
+      {detailClient && (
+        <div className="modal-overlay" onClick={() => setDetailClient(null)}>
+          <div className="edit-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Detail Klien</p>
+                <h2>{detailClient.namaKlien}</h2>
+              </div>
+              <button
+                type="button"
+                className="close-button"
+                onClick={() => setDetailClient(null)}
+                aria-label="Tutup modal detail"
+              >
+                Close
+              </button>
+            </div>
+            <div className="summary-grid">
+              <div className="summary-item">
+                <span>Nama Barang</span>
+                <strong>{detailClient.namaBarang}</strong>
+              </div>
+              <div className="summary-item">
+                <span>Jenis Barang</span>
+                <strong>{detailClient.jenisBarang}</strong>
+              </div>
+              <div className="summary-item">
+                <span>Harga Barang</span>
+                <strong>{formatCurrency(detailClient.hargaBarang)}</strong>
+              </div>
+              <div className="summary-item">
+                <span>DP</span>
+                <strong>{formatCurrency(detailClient.dp)}</strong>
+              </div>
+              <div className="summary-item">
+                <span>Bunga</span>
+                <strong>{detailClient.bunga}%</strong>
+              </div>
+              <div className="summary-item">
+                <span>Tenor</span>
+                <strong>{detailClient.tenorBulan} bulan</strong>
+              </div>
+              <div className="summary-item">
+                <span>Tanggal Pembelian</span>
+                <strong>{detailClient.tanggalPembelian}</strong>
+              </div>
+            </div>
+            <div className="cicilan-detail" style={{ marginTop: '20px' }}>
+              <h3>Riwayat Cicilan</h3>
+              {detailClient.cicilan?.length ? (
+                <div className="cicilan-checklist">
+                  {detailClient.cicilan.map((cic) => (
+                    <div key={cic.bulanKe} className="cicilan-item" style={{ cursor: 'default' }}>
+                      <span>
+                        Bulan {cic.bulanKe}: {formatCurrency(cic.jumlah)}
+                      </span>
+                      <strong>{cic.sudahBayar ? 'Lunas' : 'Belum lunas'}</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-state">Belum ada jadwal cicilan untuk klien ini.</p>
+              )}
+            </div>
           </div>
         </div>
       )}

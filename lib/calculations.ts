@@ -1,5 +1,16 @@
 import type { ClientData, ClientComputed } from '@/types/client';
 
+function roundInstallment(value: number) {
+  const rounded = Math.round(value);
+  const remainder = rounded % 1000;
+
+  if (remainder < 100) {
+    return rounded - remainder;
+  }
+
+  return rounded + (1000 - remainder);
+}
+
 export function calculateClientValues(client: ClientData): ClientComputed {
   const sisaTagihan = client.hargaBarang - client.dp;
   const bungaTotal = sisaTagihan * (client.bunga / 100) * client.tenorBulan;
@@ -10,7 +21,7 @@ export function calculateClientValues(client: ClientData): ClientComputed {
     sisaTagihan: Math.round(sisaTagihan),
     bungaTotal: Math.round(bungaTotal),
     totalKeuntungan: Math.round(totalKeuntungan),
-    cicilanPerbulan: Math.round(cicilanPerbulan),
+    cicilanPerbulan: roundInstallment(cicilanPerbulan),
   };
 }
 
