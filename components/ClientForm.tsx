@@ -8,6 +8,7 @@ interface ClientFormProps {
   initialData?: ClientData | null;
   onSave: (client: ClientData) => void;
   onCancel: () => void;
+  isSaving?: boolean;
 }
 
 const defaultValues = {
@@ -23,7 +24,7 @@ const defaultValues = {
   cicilan: [],
 };
 
-export default function ClientForm({ initialData, onSave, onCancel }: ClientFormProps) {
+export default function ClientForm({ initialData, onSave, onCancel, isSaving = false }: ClientFormProps) {
   const [form, setForm] = useState<ClientData>(
     initialData ? { ...defaultValues, ...initialData } : { ...defaultValues }
   );
@@ -225,8 +226,15 @@ export default function ClientForm({ initialData, onSave, onCancel }: ClientForm
       </div>
 
       <div className="actions">
-        <button type="submit" className="primary" disabled={isSubmitDisabled}>
-          {buttonLabel}
+        <button type="submit" className="primary" disabled={isSubmitDisabled || isSaving}>
+          {isSaving ? (
+            <>
+              <span className="button-spinner" />
+              Menyimpan...
+            </>
+          ) : (
+            buttonLabel
+          )}
         </button>
         {initialData && (
           <button type="button" className="secondary" onClick={onCancel}>

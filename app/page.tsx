@@ -8,6 +8,10 @@ import { calculateClientValues, formatCurrency } from '@/lib/calculations';
 export default function HomePage() {
   const [clients, setClients] = useState<ClientData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [newFormKey, setNewFormKey] = useState(0);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState<ClientData | null>(null);
@@ -34,6 +38,7 @@ export default function HomePage() {
   }
 
   async function handleSave(client: ClientData) {
+    setIsSaving(true);
     try {
       setError(null);
       const isUpdate = Boolean(client._id);
@@ -51,10 +56,16 @@ export default function HomePage() {
       }
 
       await fetchClients();
+      if (!isUpdate) {
+        setNewFormKey((current) => current + 1);
+        setShowAddModal(false);
+      }
       setEditingClient(null);
       setSuccessMessage(isUpdate ? 'Data klien berhasil diperbarui.' : 'Data klien berhasil ditambahkan.');
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -92,6 +103,7 @@ export default function HomePage() {
   async function handleDelete(id: string) {
     if (!confirm('Hapus klien ini?')) return;
 
+    setDeletingId(id);
     try {
       setError(null);
       const response = await fetch(`/api/clients/${id}`, { method: 'DELETE' });
@@ -100,6 +112,8 @@ export default function HomePage() {
       setSuccessMessage('Data klien berhasil dihapus.');
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -120,61 +134,20 @@ export default function HomePage() {
 
   return (
     <main className="page-shell">
-      <section className="hero-panel">
-        <div>
-          <span className="eyebrow">Zynext Counter</span>
-          <h1>Kelola Klien Kredit Elektronik dengan Cepat</h1>
-          <p>Platform lengkap untuk menyimpan, mengedit, dan memantau data klien kredit serta cicilan bulanan Anda.</p>
-        </div>
-        <div className="hero-card">
-          <div className="stat-block">
-            <p className="stat">Klien aktif</p>
-            <strong>{clients.length}</strong>
-          </div>
-          <div className="hero-metrics">
-            <div>
-              <span>Total DP</span>
-              <strong>{formatCurrency(totalDp)}</strong>
-            </div>
-            <div>
-              <span>Cicilan terbayar</span>
-              <strong>{totalPaidInstallments}/{totalInstallments}</strong>
-            </div>
-            <div>
-              <span>Total keuntungan</span>
-              <strong>{formatCurrency(totalKeuntungan)}</strong>
-            </div>
-            <div>
-              <span>Rata-rata tenor</span>
-              <strong>{averageTenor} bulan</strong>
-            </div>
-          </div>
-          <p className="note">Semua data tersimpan di MongoDB dengan laporan cicilan real-time.</p>
-        </div>
-      </section>
-
       <section className="content-grid">
-        <div className="panel card-panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">Form Klien</p>
-              <h2>Tambahkan Klien Baru</h2>
-            </div>
-          </div>
-
-          <ClientForm
-            key="new"
-            onSave={handleSave}
-            onCancel={() => setEditingClient(null)}
-          />
-        </div>
-
         <div className="panel card-panel">
           <div className="panel-header">
             <div>
               <p className="eyebrow">Daftar Klien</p>
               <h2>Data klien terbaru</h2>
             </div>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setShowAddModal(true)}
+            >
+              Tambah Data
+            </button>
           </div>
 
           {error && <div className="alert">{error}</div>}
@@ -229,9 +202,17 @@ export default function HomePage() {
                             <button
                               type="button"
                               className="secondary"
+                              disabled={deletingId === client._id}
                               onClick={() => client._id && handleDelete(client._id)}
                             >
-                              Hapus
+                              {deletingId === client._id ? (
+                                <>
+                                  <span className="button-spinner" />
+                                  Menghapus...
+                                </>
+                              ) : (
+                                'Hapus'
+                              )}
                             </button>
                             <button
                               type="button"
@@ -295,6 +276,35 @@ export default function HomePage() {
               initialData={editingClient}
               onSave={handleSave}
               onCancel={() => setEditingClient(null)}
+              isSaving={isSaving}
+            />
+          </div>
+        </div>
+      )}
+
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="edit-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Tambah Klien</p>
+                <h2>Masukkan data klien baru</h2>
+              </div>
+              <button
+                type="button"
+                className="close-button"
+                onClick={() => setShowAddModal(false)}
+                aria-label="Tutup modal tambah"
+              >
+                Close
+              </button>
+            </div>
+
+            <ClientForm
+              key={newFormKey}
+              onSave={handleSave}
+              onCancel={() => setShowAddModal(false)}
+              isSaving={isSaving}
             />
           </div>
         </div>

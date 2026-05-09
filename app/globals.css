@@ -308,6 +308,24 @@ button.primary:hover:not(:disabled) {
   box-shadow: 0 12px 28px rgba(37, 99, 235, 0.22);
 }
 
+.button-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin-right: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 999px;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 button.secondary {
   background: rgba(148, 163, 184, 0.08);
   color: #e2e8f0;
@@ -371,6 +389,16 @@ button.small {
 .form-grid {
   display: grid;
   gap: 24px;
+}
+
+.panel-body {
+  padding: 18px 0 0;
+  color: #cbd5e1;
+  line-height: 1.65;
+}
+
+.panel-body p {
+  margin: 0;
 }
 
 .form-section {
