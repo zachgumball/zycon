@@ -14,6 +14,7 @@ export default function HomePage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [userRole, setUserRole] = useState<'admin' | 'guest' | null>(null);
   const [guestName, setGuestName] = useState('');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [showLoginModal, setShowLoginModal] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginTab, setLoginTab] = useState<'admin' | 'guest'>('admin');
@@ -29,6 +30,26 @@ export default function HomePage() {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem('theme');
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      setTheme(savedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light-theme');
+    } else {
+      document.documentElement.classList.remove('light-theme');
+    }
+    window.localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((current) => (current === 'dark' ? 'light' : 'dark'));
+  };
 
   async function fetchClients() {
     setIsLoading(true);
@@ -250,13 +271,14 @@ export default function HomePage() {
   }
 
   const totalInstallments = clients.reduce((sum, client) => sum + (client.cicilan?.length ?? 0), 0);
-  const totalOutstanding = clients.reduce((sum, client) => sum + calculateClientValues(client).sisaTagihan, 0);
-  const totalUnpaidInstallments = clients.reduce(
+  const summaryClients = userRole === 'guest' ? filteredClients : clients;
+  const totalOutstanding = summaryClients.reduce((sum, client) => sum + calculateClientValues(client).sisaTagihan, 0);
+  const totalUnpaidInstallments = summaryClients.reduce(
     (sum, client) => sum + (client.cicilan?.filter((c) => !c.sudahBayar).length ?? 0),
     0
   );
-  const totalKeuntungan = clients.reduce((sum, client) => sum + calculateClientValues(client).totalKeuntungan, 0);
-  const averageTenor = clients.length ? Math.round(clients.reduce((sum, client) => sum + client.tenorBulan, 0) / clients.length) : 0;
+  const totalKeuntungan = summaryClients.reduce((sum, client) => sum + calculateClientValues(client).totalKeuntungan, 0);
+  const averageTenor = summaryClients.length ? Math.round(summaryClients.reduce((sum, client) => sum + client.tenorBulan, 0) / summaryClients.length) : 0;
 
   if (showLoginModal) {
     return (
@@ -359,7 +381,7 @@ export default function HomePage() {
         </div>
       )}
       <section className="content-grid">
-        {userRole === 'admin' && (
+        {(userRole === 'admin' || userRole === 'guest') && (
         <div className="panel card-panel">
           <div className="panel-header">
             <div>
@@ -371,11 +393,11 @@ export default function HomePage() {
           <div className="summary-grid">
             <div className="summary-item">
               <span>Klien aktif</span>
-              <strong>{clients.length}</strong>
+              <strong>{summaryClients.length}</strong>
             </div>
             <div className="summary-item">
               <span>Total DP</span>
-              <strong>{formatCurrency(totalDp)}</strong>
+              <strong>{formatCurrency(summaryClients.reduce((sum, client) => sum + client.dp, 0))}</strong>
             </div>
             <div className="summary-item">
               <span>Total piutang</span>
@@ -383,7 +405,7 @@ export default function HomePage() {
             </div>
             <div className="summary-item">
               <span>Cicilan terbayar</span>
-              <strong>{totalPaidInstallments}/{totalInstallments}</strong>
+              <strong>{summaryClients.reduce((sum, client) => sum + (client.cicilan?.filter((c) => c.sudahBayar).length ?? 0), 0)}/{summaryClients.reduce((sum, client) => sum + (client.cicilan?.length ?? 0), 0)}</strong>
             </div>
             <div className="summary-item">
               <span>Cicilan tersisa</span>
@@ -399,7 +421,7 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-        )}
+      )}
 
         <div className="panel card-panel" style={{ gridColumn: userRole === 'guest' ? '1 / -1' : 'auto' }}>
           <div className="panel-header">
@@ -427,6 +449,14 @@ export default function HomePage() {
                   </button>
                 </>
               )}
+              <button
+                type="button"
+                className="secondary"
+                onClick={toggleTheme}
+                title="Ubah tema aplikasi"
+              >
+                {theme === 'dark' ? 'Tema Terang' : 'Tema Gelap'}
+              </button>
             </div>
           </div>
 
@@ -555,18 +585,25 @@ export default function HomePage() {
                           <tr className="cicilan-detail-row">
                             <td colSpan={9}>
                               <div className="cicilan-detail">
-                                {client.cicilan.map((cic) => (
-                                  <label key={cic.bulanKe} className="cicilan-item">
-                                    <input
-                                      type="checkbox"
-                                      checked={cic.sudahBayar}
-                                      onChange={() => handleToggleCicilanPayment(client, cic.bulanKe)}
-                                    />
-                                    <span>
-                                      Bulan {cic.bulanKe}: {formatCurrency(cic.jumlah)}
-                                    </span>
-                                  </label>
-                                ))}
+                                {client.cicilan.map((cic) => {
+                                  const cikNominal =
+                                    userRole === 'guest'
+                                      ? calculateClientValues(client).cicilanPerbulan
+                                      : cic.jumlah;
+
+                                  return (
+                                    <label key={cic.bulanKe} className="cicilan-item">
+                                      <input
+                                        type="checkbox"
+                                        checked={cic.sudahBayar}
+                                        onChange={() => handleToggleCicilanPayment(client, cic.bulanKe)}
+                                      />
+                                      <span>
+                                        Bulan {cic.bulanKe}: {formatCurrency(cikNominal)}
+                                      </span>
+                                    </label>
+                                  );
+                                })}
                               </div>
                             </td>
                           </tr>
@@ -661,14 +698,21 @@ export default function HomePage() {
               <h3>Riwayat Cicilan</h3>
               {detailClient.cicilan?.length ? (
                 <div className="cicilan-checklist">
-                  {detailClient.cicilan.map((cic) => (
-                    <div key={cic.bulanKe} className="cicilan-item" style={{ cursor: 'default' }}>
-                      <span>
-                        Bulan {cic.bulanKe}: {formatCurrency(cic.jumlah)}
-                      </span>
-                      <strong>{cic.sudahBayar ? 'Lunas' : 'Belum lunas'}</strong>
-                    </div>
-                  ))}
+                  {detailClient.cicilan.map((cic) => {
+                    const detailCicilanAmount =
+                      userRole === 'guest' && detailClient
+                        ? calculateClientValues(detailClient).cicilanPerbulan
+                        : cic.jumlah;
+
+                    return (
+                      <div key={cic.bulanKe} className="cicilan-item" style={{ cursor: 'default' }}>
+                        <span>
+                          Bulan {cic.bulanKe}: {formatCurrency(detailCicilanAmount)}
+                        </span>
+                        <strong>{cic.sudahBayar ? 'Lunas' : 'Belum lunas'}</strong>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="empty-state">Belum ada jadwal cicilan untuk klien ini.</p>
