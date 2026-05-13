@@ -3,7 +3,11 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import ClientForm from '@/components/ClientForm';
 import type { ClientData } from '@/types/client';
-import { calculateClientValues, formatCurrency } from '@/lib/calculations';
+import {
+  applyManualPayment,
+  calculateClientValues,
+  formatCurrency,
+} from '@/lib/calculations';
 
 export default function HomePage() {
   const [clients, setClients] = useState<ClientData[]>([]);
@@ -26,6 +30,13 @@ export default function HomePage() {
   const [editingClient, setEditingClient] = useState<ClientData | null>(null);
   const [detailClient, setDetailClient] = useState<ClientData | null>(null);
   const [expandedCicilanId, setExpandedCicilanId] = useState<string | null>(null);
+  const [paymentTarget, setPaymentTarget] = useState<{
+    client: ClientData;
+    bulanKe: number;
+    expected: number;
+  } | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchClients();
@@ -129,6 +140,47 @@ export default function HomePage() {
 
     handleUpdateCicilan(client._id, updated);
   }
+
+  function openPaymentModal(client: ClientData, bulanKe: number) {
+    const installment = client.cicilan?.find((c) => c.bulanKe === bulanKe);
+    if (!installment) return;
+
+    setPaymentTarget({ client, bulanKe, expected: installment.jumlah });
+    setPaymentAmount(installment.jumlah.toString());
+    setPaymentError(null);
+  }
+
+  async function handleConfirmManualPayment() {
+    if (!paymentTarget || !paymentTarget.client._id) return;
+
+    const amount = parseInt(paymentAmount.replace(/\D/g, ''), 10);
+    if (!amount || amount <= 0) {
+      setPaymentError('Masukkan nominal pembayaran yang valid.');
+      return;
+    }
+
+    const updated = applyManualPayment(paymentTarget.client, paymentTarget.bulanKe, amount);
+    await handleUpdateCicilan(paymentTarget.client._id, updated);
+    setPaymentTarget(null);
+    setPaymentAmount('');
+    setPaymentError(null);
+  }
+
+  function formatDisplayValue(value: number): string {
+    return new Intl.NumberFormat('id-ID').format(value);
+  }
+
+  function handleCancelPayment() {
+    setPaymentTarget(null);
+    setPaymentAmount('');
+    setPaymentError(null);
+  }
+
+  function handlePriceChange(rawValue: string, setter: (value: string) => void) {
+    const numValue = parseInt(rawValue.replace(/\D/g, ''), 10) || 0;
+    setter(numValue.toString());
+  }
+
 
   function handleExportCSV() {
     if (filteredClients.length === 0) {
@@ -592,16 +644,31 @@ export default function HomePage() {
                                       : cic.jumlah;
 
                                   return (
-                                    <label key={cic.bulanKe} className="cicilan-item">
-                                      <input
-                                        type="checkbox"
-                                        checked={cic.sudahBayar}
-                                        onChange={() => handleToggleCicilanPayment(client, cic.bulanKe)}
-                                      />
-                                      <span>
-                                        Bulan {cic.bulanKe}: {formatCurrency(cikNominal)}
-                                      </span>
-                                    </label>
+                                    <div key={cic.bulanKe} className="cicilan-item">
+                                      <div style={{ display: 'flex', flex: 1, gap: '10px', alignItems: 'center' }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={cic.sudahBayar}
+                                          readOnly
+                                        />
+                                        <span>
+                                          Bulan {cic.bulanKe}: {formatCurrency(cikNominal)}
+                                        </span>
+                                      </div>
+                                      {userRole === 'admin' && (
+                                        <button
+                                          type="button"
+                                          className="secondary small"
+                                          onClick={() =>
+                                            cic.sudahBayar
+                                              ? handleToggleCicilanPayment(client, cic.bulanKe)
+                                              : openPaymentModal(client, cic.bulanKe)
+                                          }
+                                        >
+                                          {cic.sudahBayar ? 'Batalkan' : 'Bayar'}
+                                        </button>
+                                      )}
+                                    </div>
                                   );
                                 })}
                               </div>
@@ -746,6 +813,57 @@ export default function HomePage() {
               onCancel={() => setShowAddModal(false)}
               isSaving={isSaving}
             />
+          </div>
+        </div>
+      )}
+
+      {paymentTarget && (
+        <div className="modal-overlay" onClick={handleCancelPayment}>
+          <div className="edit-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Pembayaran Cicilan</p>
+                <h2>Bayar Bulan {paymentTarget.bulanKe}</h2>
+              </div>
+              <button
+                type="button"
+                className="close-button"
+                onClick={handleCancelPayment}
+                aria-label="Tutup modal pembayaran"
+              >
+                Close
+              </button>
+            </div>
+            <div className="form-grid">
+              <div className="field">
+                <label>Nama Klien</label>
+                <input value={paymentTarget.client.namaKlien} readOnly />
+              </div>
+              <div className="field">
+                <label>Nominal Angsuran Saat Ini</label>
+                <input value={formatCurrency(paymentTarget.expected)} readOnly />
+              </div>
+              <div className="field">
+                <label htmlFor="manualPaymentAmount">Nominal yang diterima</label>
+                <input
+                  id="manualPaymentAmount"
+                  type="text"
+                  inputMode="numeric"
+                  value={formatDisplayValue(parseInt(paymentAmount) || 0)}
+                  onChange={(e) => handlePriceChange(e.target.value, setPaymentAmount)}
+                  placeholder="0"
+                />
+                {paymentError && <div className="field-error">{paymentError}</div>}
+              </div>
+              <div className="panel-header" style={{ justifyContent: 'flex-end', gap: '12px' }}>
+                <button type="button" className="secondary" onClick={handleCancelPayment}>
+                  Batal
+                </button>
+                <button type="button" className="primary" onClick={handleConfirmManualPayment}>
+                  Simpan Pembayaran
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -40,10 +40,44 @@ export function generateCicilanSchedule(client: ClientData) {
   return cicilan;
 }
 
+export function applyManualPayment(
+  client: ClientData,
+  bulanKe: number,
+  actualAmount: number
+): ClientData['cicilan'] {
+  if (!client.cicilan) return [];
+
+  const updated = client.cicilan.map((item) => ({ ...item }));
+  const target = updated.find((item) => item.bulanKe === bulanKe);
+  if (!target) return updated;
+
+  const expectedAmount = target.jumlah;
+  const diff = actualAmount - expectedAmount;
+  target.jumlah = actualAmount;
+  target.sudahBayar = true;
+
+  const future = updated.filter((item) => item.bulanKe > bulanKe && !item.sudahBayar);
+  if (future.length === 0 || diff === 0) return updated;
+
+  const totalAdjustment = -diff;
+  const baseChange = Math.trunc(totalAdjustment / future.length);
+  let remainder = totalAdjustment - baseChange * future.length;
+
+  future.forEach((item) => {
+    const extra = remainder !== 0 ? Math.sign(totalAdjustment) : 0;
+    item.jumlah += baseChange + extra;
+    remainder -= extra;
+  });
+
+  return updated;
+}
+
 export function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('id-ID', {
+  const formatted = new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     minimumFractionDigits: 0,
-  }).format(value);
+  }).format(Math.abs(value));
+
+  return value < 0 ? `−${formatted}` : formatted;
 }
