@@ -416,35 +416,75 @@ export default function HomePage() {
 
   return (
     <main className="page-shell">
+      {/* Page Header */}
+      <div className="page-header">
+        <div className="page-header-content">
+          <h1>Zynext Counter</h1>
+          <p>Kelola data klien dan cicilan dengan mudah</p>
+        </div>
+        <div className="page-header-actions">
+          {userRole === 'admin' && (
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setShowAddModal(true)}
+            >
+              + Tambah Data
+            </button>
+          )}
+          <button
+            type="button"
+            className="secondary"
+            onClick={toggleTheme}
+            title="Ubah tema"
+          >
+            {theme === 'dark' ? '☀️ Terang' : '🌙 Gelap'}
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            onClick={handleLogout}
+            title="Keluar dari aplikasi"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+
+      {/* Status Banner */}
       {userRole === 'guest' && (
         <div className="guest-banner">
           <span>Anda login sebagai Guest: <strong>{searchTerm}</strong></span>
-          <button type="button" className="ghost small" onClick={handleLogout}>
-            Logout
-          </button>
         </div>
       )}
       {userRole === 'admin' && (
         <div className="admin-banner">
-          <span>Anda login sebagai Admin</span>
-          <button type="button" className="ghost small" onClick={handleLogout}>
-            Logout
-          </button>
+          <span>✓ Anda login sebagai Admin</span>
         </div>
       )}
+
+      {/* Alerts */}
+      {error && (
+        <div className="alert alert error" style={{ marginBottom: '24px' }}>
+          <strong>Terjadi kesalahan:</strong> {error}
+        </div>
+      )}
+      {successMessage && (
+        <div className="alert success" style={{ marginBottom: '24px' }}>
+          <strong>Berhasil!</strong> {successMessage}
+        </div>
+      )}
+
       <section className="content-grid">
         {(userRole === 'admin' || userRole === 'guest') && (
-        <div className="panel card-panel">
+        <div className="panel">
           <div className="panel-header">
-            <div>
-              <p className="eyebrow">Detail Aktif</p>
-              <h2>Ringkasan klien</h2>
-            </div>
+            <h2>Ringkasan Data</h2>
           </div>
 
           <div className="summary-grid">
             <div className="summary-item">
-              <span>Klien aktif</span>
+              <span>Klien Aktif</span>
               <strong>{summaryClients.length}</strong>
             </div>
             <div className="summary-item">
@@ -452,79 +492,59 @@ export default function HomePage() {
               <strong>{formatCurrency(summaryClients.reduce((sum, client) => sum + client.dp, 0))}</strong>
             </div>
             <div className="summary-item">
-              <span>Total piutang</span>
+              <span>Total Piutang</span>
               <strong>{formatCurrency(totalOutstanding)}</strong>
             </div>
             <div className="summary-item">
-              <span>Cicilan terbayar</span>
-              <strong>{summaryClients.reduce((sum, client) => sum + (client.cicilan?.filter((c) => c.sudahBayar).length ?? 0), 0)}/{summaryClients.reduce((sum, client) => sum + (client.cicilan?.length ?? 0), 0)}</strong>
+              <span>Cicilan Dibayar</span>
+              <strong>{summaryClients.reduce((sum, client) => sum + (client.cicilan?.filter((c) => c.sudahBayar).length ?? 0), 0)}/{totalInstallments}</strong>
             </div>
             <div className="summary-item">
-              <span>Cicilan tersisa</span>
+              <span>Cicilan Tersisa</span>
               <strong>{totalUnpaidInstallments}</strong>
             </div>
             <div className="summary-item">
-              <span>Total keuntungan</span>
+              <span>Total Keuntungan</span>
               <strong>{formatCurrency(totalKeuntungan)}</strong>
             </div>
             <div className="summary-item">
-              <span>Rata-rata tenor</span>
-              <strong>{averageTenor} bulan</strong>
+              <span>Rata-rata Tenor</span>
+              <strong>{averageTenor} bln</strong>
             </div>
           </div>
         </div>
       )}
 
-        <div className="panel card-panel" style={{ gridColumn: userRole === 'guest' ? '1 / -1' : 'auto' }}>
+        <div className="panel" style={{ gridColumn: userRole === 'guest' ? '1 / -1' : 'auto' }}>
           <div className="panel-header">
-            <div>
-              <p className="eyebrow">Daftar Klien</p>
-              <h2>Data klien terbaru</h2>
-            </div>
-            <div className="actions">
+            <h2>Daftar Klien</h2>
+            <div className="panel-header .actions" style={{ display: 'flex', gap: '10px' }}>
               {userRole === 'admin' && (
-                <>
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => setShowAddModal(true)}
-                  >
-                    Tambah Data
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={handleExportCSV}
-                    title="Export data klien sebagai CSV"
-                  >
-                    Export CSV
-                  </button>
-                </>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={handleExportCSV}
+                  title="Export data klien sebagai CSV"
+                >
+                  📊 Export CSV
+                </button>
               )}
-              <button
-                type="button"
-                className="secondary"
-                onClick={toggleTheme}
-                title="Ubah tema aplikasi"
-              >
-                {theme === 'dark' ? 'Tema Terang' : 'Tema Gelap'}
-              </button>
             </div>
           </div>
 
           <div className="search-filters">
-            <div className="search-box">
+            <div>
               <label htmlFor="searchTerm">Cari klien / barang</label>
               <input
                 id="searchTerm"
                 type="search"
-                placeholder="Cari nama klien, barang, atau jenis"
+                placeholder="Cari nama klien, barang, atau jenis..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             {userRole === 'admin' && (
-              <div className="search-box">
+              <div>
                 <label htmlFor="statusFilter">Filter status cicilan</label>
                 <select
                   id="statusFilter"
@@ -538,9 +558,6 @@ export default function HomePage() {
               </div>
             )}
           </div>
-
-          {error && <div className="alert">{error}</div>}
-          {successMessage && <div className="success">{successMessage}</div>}
           {isLoading ? (
             <div className="loader">Memuat data...</div>
           ) : clients.length === 0 ? (
