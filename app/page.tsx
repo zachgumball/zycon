@@ -419,8 +419,17 @@ export default function HomePage() {
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-content">
-          <h1>Zynext Counter</h1>
-          <p>Kelola data klien dan cicilan dengan mudah</p>
+          <div className="brand-stack">
+            <div className="brand-logo" aria-hidden="true">
+              <svg viewBox="0 0 64 64" role="img" aria-label="Logo">
+                <path d="M32 6C18.7 6 8 16.7 8 30s10.7 24 24 24 24-10.7 24-24S45.3 6 32 6Zm0 4c10.5 0 19 8.5 19 19S42.5 48 32 48 13 39.5 13 29 21.5 10 32 10Zm-4.5 7.8c-6.1 1.7-10.5 7.4-10.5 13.8 0 1.1.9 2 2 2s2-.9 2-2c0-4.8 3.6-8.8 8.3-9.4V34h-5c-1.1 0-2 .9-2 2s.9 2 2 2h7c1.1 0 2-.9 2-2V24c0-1.1-.9-2-2-2s-2 .9-2 2v5.1c-1.6.3-3 .9-4.5 1.7v-9.1c0-1.1-.9-2-2-2s-2 .9-2 2v5.6Z"/>
+              </svg>
+            </div>
+            <div className="brand-text">
+              <h1>Zynext Counter</h1>
+              <p>Kelola data klien dan cicilan dengan mudah</p>
+            </div>
+          </div>
         </div>
         <div className="page-header-actions">
           {userRole === 'admin' && (
