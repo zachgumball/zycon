@@ -370,8 +370,8 @@ export default function HomePage() {
     setStatusFilter('all');
   }
 
-  const totalInstallments = clients.reduce((sum, client) => sum + (client.cicilan?.length ?? 0), 0);
   const summaryClients = userRole === 'guest' ? filteredClients : clients;
+  const totalInstallments = summaryClients.reduce((sum, client) => sum + (client.cicilan?.length ?? 0), 0);
   const totalOutstanding = summaryClients.reduce(
     (sum, client) =>
       sum +
@@ -518,7 +518,7 @@ export default function HomePage() {
       {/* Status Banner */}
       {userRole === 'guest' && (
         <div className="guest-banner">
-          <span>Anda login sebagai Guest: <strong>{searchTerm}</strong></span>
+          <span>Anda login sebagai Guest: <strong>{summaryClients[0]?.namaKlien || searchTerm}</strong></span>
         </div>
       )}
       {userRole === 'admin' && (
@@ -579,15 +579,17 @@ export default function HomePage() {
                 <strong>{formatCurrency(totalKeuntungan)}</strong>
               </div>
             )}
-            <div className="summary-item">
-              <span>Rata-rata Tenor</span>
-              <strong>{averageTenor} bln</strong>
-            </div>
+            {userRole === 'admin' && (
+              <div className="summary-item">
+                <span>Rata-rata Tenor</span>
+                <strong>{averageTenor} bln</strong>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {userRole === 'admin' && (
+        {userRole === 'admin' && (
         <div className="panel">
           <div className="panel-header">
             <h2>Daftar Klien</h2>
@@ -638,8 +640,9 @@ export default function HomePage() {
               <table className="client-table">
                 <thead>
                   <tr>
+                    <th>No</th>
                     <th>Nama Klien</th>
-                    <th>ID Klien</th>
+                    {userRole === 'admin' && <th>ID Klien</th>}
                     <th>Barang</th>
                     <th>Jenis Barang</th>
                     <th>Harga</th>
@@ -652,7 +655,7 @@ export default function HomePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredClients.map((client) => {
+                  {filteredClients.map((client, index) => {
                     const computed = calculateClientValues(client);
                     const paidCount = client.cicilan?.filter((c) => c.sudahBayar).length ?? 0;
                     const isExpanded = expandedCicilanId === client._id;
@@ -660,6 +663,7 @@ export default function HomePage() {
                     return (
                       <Fragment key={client._id}>
                         <tr>
+                          <td data-label="No">{index + 1}</td>
                           <td data-label="Nama Klien">{client.namaKlien}</td>
                           {userRole === 'admin' && (
                             <td data-label="ID Klien">{client.clientId ?? '-'}</td>
