@@ -4,6 +4,12 @@ export interface CicilanItem {
   sudahBayar: boolean;
 }
 
+export interface PaymentLogItem {
+  bulanKe: number;
+  jumlah: number;
+  tanggalBayar: string;
+}
+
 export interface ClientData {
   _id?: string;
   namaKlien: string;
@@ -16,6 +22,7 @@ export interface ClientData {
   tenorBulan: number;
   dp: number;
   cicilan?: CicilanItem[];
+  paymentLogs?: PaymentLogItem[];
   createdAt?: string | null;
 }
 

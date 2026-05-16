@@ -13,16 +13,24 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const { cicilan } = body;
+  const { cicilan, paymentLogs } = body;
 
   if (!Array.isArray(cicilan)) {
     return NextResponse.json({ message: 'Data cicilan tidak valid.' }, { status: 400 });
   }
 
+  const updateFields: Record<string, unknown> = { cicilan };
+  if (paymentLogs !== undefined) {
+    if (!Array.isArray(paymentLogs)) {
+      return NextResponse.json({ message: 'Data log pembayaran tidak valid.' }, { status: 400 });
+    }
+    updateFields.paymentLogs = paymentLogs;
+  }
+
   const db = await connectToDatabase();
   const result = await db.collection('clients').findOneAndUpdate(
     { _id: new ObjectId(id) },
-    { $set: { cicilan } },
+    { $set: updateFields },
     { returnDocument: 'after' }
   );
 

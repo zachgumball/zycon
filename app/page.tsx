@@ -110,13 +110,22 @@ export default function HomePage() {
     }
   }
 
-  async function handleUpdateCicilan(id: string, cicilan: ClientData['cicilan']) {
+  async function handleUpdateCicilan(
+    id: string,
+    cicilan: ClientData['cicilan'],
+    paymentLogs?: ClientData['paymentLogs']
+  ) {
     try {
       setError(null);
+      const body: Record<string, unknown> = { cicilan };
+      if (paymentLogs !== undefined) {
+        body.paymentLogs = paymentLogs;
+      }
+
       const response = await fetch(`/api/clients/${id}/cicilan`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cicilan }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) throw new Error('Gagal memperbarui cicilan.');
@@ -134,11 +143,26 @@ export default function HomePage() {
   function handleToggleCicilanPayment(client: ClientData, bulanKe: number) {
     if (!client._id || !client.cicilan) return;
 
+    const targetPayment = client.cicilan.find((c) => c.bulanKe === bulanKe);
+    if (!targetPayment) return;
+
     const updated = client.cicilan.map((c) =>
       c.bulanKe === bulanKe ? { ...c, sudahBayar: !c.sudahBayar } : c
     );
 
-    handleUpdateCicilan(client._id, updated);
+    const paymentLogs =
+      !targetPayment.sudahBayar && targetPayment.jumlah > 0
+        ? [
+            ...(client.paymentLogs ?? []),
+            {
+              bulanKe,
+              jumlah: targetPayment.jumlah,
+              tanggalBayar: new Date().toISOString(),
+            },
+          ]
+        : undefined;
+
+    handleUpdateCicilan(client._id, updated, paymentLogs);
   }
 
   function openPaymentModal(client: ClientData, bulanKe: number) {
@@ -160,7 +184,16 @@ export default function HomePage() {
     }
 
     const updated = applyManualPayment(paymentTarget.client, paymentTarget.bulanKe, amount);
-    await handleUpdateCicilan(paymentTarget.client._id, updated);
+    const paymentLogs = [
+      ...(paymentTarget.client.paymentLogs ?? []),
+      {
+        bulanKe: paymentTarget.bulanKe,
+        jumlah: amount,
+        tanggalBayar: new Date().toISOString(),
+      },
+    ];
+
+    await handleUpdateCicilan(paymentTarget.client._id, updated, paymentLogs);
     setPaymentTarget(null);
     setPaymentAmount('');
     setPaymentError(null);
@@ -324,7 +357,14 @@ export default function HomePage() {
 
   const totalInstallments = clients.reduce((sum, client) => sum + (client.cicilan?.length ?? 0), 0);
   const summaryClients = userRole === 'guest' ? filteredClients : clients;
-  const totalOutstanding = summaryClients.reduce((sum, client) => sum + calculateClientValues(client).sisaTagihan, 0);
+  const totalOutstanding = summaryClients.reduce(
+    (sum, client) =>
+      sum +
+      (client.cicilan?.reduce((installmentSum, c) =>
+        installmentSum + (c.sudahBayar ? 0 : c.jumlah),
+      0) ?? 0),
+    0
+  );
   const totalUnpaidInstallments = summaryClients.reduce(
     (sum, client) => sum + (client.cicilan?.filter((c) => !c.sudahBayar).length ?? 0),
     0
@@ -809,6 +849,31 @@ export default function HomePage() {
                 </div>
               ) : (
                 <p className="empty-state">Belum ada jadwal cicilan untuk klien ini.</p>
+              )}
+            </div>
+            <div className="cicilan-detail" style={{ marginTop: '20px' }}>
+              <h3>Riwayat Pembayaran</h3>
+              {detailClient.paymentLogs?.length ? (
+                <div className="payment-log-list">
+                  {[...detailClient.paymentLogs]
+                    .sort((a, b) => new Date(b.tanggalBayar).getTime() - new Date(a.tanggalBayar).getTime())
+                    .map((log, index) => (
+                      <div key={`${log.bulanKe}-${index}`} className="payment-log-item">
+                        <div>
+                          <strong>Bulan {log.bulanKe}</strong>
+                          <span>{formatCurrency(log.jumlah)}</span>
+                        </div>
+                        <small>
+                          {new Intl.DateTimeFormat('id-ID', {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          }).format(new Date(log.tanggalBayar))}
+                        </small>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <p className="empty-state">Belum ada catatan pembayaran.</p>
               )}
             </div>
           </div>

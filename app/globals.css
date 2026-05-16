@@ -898,6 +898,32 @@ button.small {
   margin-top: 12px;
 }
 
+.payment-log-list {
+  display: grid;
+  gap: 10px;
+}
+
+.payment-log-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+}
+
+.payment-log-item div {
+  display: grid;
+  gap: 4px;
+}
+
+.payment-log-item small {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
 @media (max-width: 768px) {
   .cicilan-item {
     padding: 10px 12px;

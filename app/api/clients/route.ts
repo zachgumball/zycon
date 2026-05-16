@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     tenorBulan: Number(tenorBulan),
     dp: Number(dp),
     cicilan: cicilan || [],
+    paymentLogs: [],
     createdAt: new Date(),
   });
 
