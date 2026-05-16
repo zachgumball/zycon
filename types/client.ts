@@ -12,6 +12,7 @@ export interface PaymentLogItem {
 
 export interface ClientData {
   _id?: string;
+  clientId?: string;
   namaKlien: string;
   namaBarang: string;
   jenisBarang: string;

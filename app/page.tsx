@@ -17,7 +17,7 @@ export default function HomePage() {
   const [newFormKey, setNewFormKey] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [userRole, setUserRole] = useState<'admin' | 'guest' | null>(null);
-  const [guestName, setGuestName] = useState('');
+  const [guestId, setGuestId] = useState('');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [showLoginModal, setShowLoginModal] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -305,7 +305,7 @@ export default function HomePage() {
     return clients.filter((client) => {
       const matchesSearch =
         !normalizedSearch ||
-        [client.namaKlien, client.namaBarang, client.jenisBarang]
+        [client.namaKlien, client.namaBarang, client.jenisBarang, client.clientId]
           .join(' ')
           .toLowerCase()
           .includes(normalizedSearch);
@@ -316,11 +316,14 @@ export default function HomePage() {
         (statusFilter === 'paid' && isPaid) ||
         (statusFilter === 'unpaid' && !isPaid);
 
-      const isGuestMatch = userRole === 'guest' ? client.namaKlien.toLowerCase().includes(normalizedSearch) : true;
+      const isGuestMatch =
+        userRole === 'guest'
+          ? client.clientId?.toLowerCase() === normalizedSearch
+          : true;
 
       return matchesSearch && statusMatches && isGuestMatch;
     });
-  }, [clients, searchTerm, statusFilter, userRole, guestName]);
+  }, [clients, searchTerm, statusFilter, userRole, guestId]);
 
   function handleAdminLogin() {
     setLoginError(null);
@@ -336,19 +339,31 @@ export default function HomePage() {
 
   function handleGuestLogin() {
     setLoginError(null);
-    if (!guestName.trim()) {
-      setLoginError('Masukkan nama Anda.');
+    if (!guestId.trim()) {
+      setLoginError('Masukkan ID Klien.');
       return;
     }
+
+    const normalizedId = guestId.trim().toLowerCase();
+    const matchedClient = clients.find(
+      (client) => client.clientId?.toLowerCase() === normalizedId
+    );
+
+    if (!matchedClient) {
+      setLoginError('ID Klien tidak ditemukan.');
+      return;
+    }
+
     setUserRole('guest');
     setShowLoginModal(false);
-    setSearchTerm(guestName);
+    setSearchTerm(matchedClient.clientId || '');
+    setGuestId('');
   }
 
   function handleLogout() {
     setUserRole(null);
     setShowLoginModal(true);
-    setGuestName('');
+    setGuestId('');
     setAdminPassword('');
     setLoginTab('admin');
     setSearchTerm('');
@@ -433,13 +448,13 @@ export default function HomePage() {
                   }}
                 >
                   <div className="field">
-                    <label htmlFor="guestName">Nama Anda</label>
+                    <label htmlFor="guestId">ID Klien</label>
                     <input
-                      id="guestName"
+                      id="guestId"
                       type="text"
-                      value={guestName}
-                      onChange={(e) => setGuestName(e.target.value)}
-                      placeholder="Masukkan nama lengkap Anda"
+                      value={guestId}
+                      onChange={(e) => setGuestId(e.target.value)}
+                      placeholder="Masukkan ID Klien Anda"
                     />
                   </div>
                   <button type="submit" className="primary" style={{ width: '100%', marginTop: '16px' }}>
@@ -536,6 +551,12 @@ export default function HomePage() {
               <span>Klien Aktif</span>
               <strong>{summaryClients.length}</strong>
             </div>
+            {userRole === 'guest' && summaryClients[0]?.clientId && (
+              <div className="summary-item">
+                <span>ID Klien</span>
+                <strong>{summaryClients[0].clientId}</strong>
+              </div>
+            )}
             <div className="summary-item">
               <span>Total DP</span>
               <strong>{formatCurrency(summaryClients.reduce((sum, client) => sum + client.dp, 0))}</strong>
@@ -552,10 +573,12 @@ export default function HomePage() {
               <span>Cicilan Tersisa</span>
               <strong>{totalUnpaidInstallments}</strong>
             </div>
-            <div className="summary-item">
-              <span>Total Keuntungan</span>
-              <strong>{formatCurrency(totalKeuntungan)}</strong>
-            </div>
+            {userRole === 'admin' && (
+              <div className="summary-item">
+                <span>Total Keuntungan</span>
+                <strong>{formatCurrency(totalKeuntungan)}</strong>
+              </div>
+            )}
             <div className="summary-item">
               <span>Rata-rata Tenor</span>
               <strong>{averageTenor} bln</strong>
@@ -564,20 +587,19 @@ export default function HomePage() {
         </div>
       )}
 
-        <div className="panel" style={{ gridColumn: userRole === 'guest' ? '1 / -1' : 'auto' }}>
+      {userRole === 'admin' && (
+        <div className="panel">
           <div className="panel-header">
             <h2>Daftar Klien</h2>
             <div className="panel-header .actions" style={{ display: 'flex', gap: '10px' }}>
-              {userRole === 'admin' && (
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={handleExportCSV}
-                  title="Export data klien sebagai CSV"
-                >
-                  📊 Export CSV
-                </button>
-              )}
+              <button
+                type="button"
+                className="secondary"
+                onClick={handleExportCSV}
+                title="Export data klien sebagai CSV"
+              >
+                📊 Export CSV
+              </button>
             </div>
           </div>
 
@@ -592,20 +614,18 @@ export default function HomePage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            {userRole === 'admin' && (
-              <div>
-                <label htmlFor="statusFilter">Filter status cicilan</label>
-                <select
-                  id="statusFilter"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as 'all' | 'paid' | 'unpaid')}
-                >
-                  <option value="all">Semua status</option>
-                  <option value="paid">Lunas</option>
-                  <option value="unpaid">Belum lunas</option>
-                </select>
-              </div>
-            )}
+            <div>
+              <label htmlFor="statusFilter">Filter status cicilan</label>
+              <select
+                id="statusFilter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'paid' | 'unpaid')}
+              >
+                <option value="all">Semua status</option>
+                <option value="paid">Lunas</option>
+                <option value="unpaid">Belum lunas</option>
+              </select>
+            </div>
           </div>
           {isLoading ? (
             <div className="loader">Memuat data...</div>
@@ -619,6 +639,7 @@ export default function HomePage() {
                 <thead>
                   <tr>
                     <th>Nama Klien</th>
+                    <th>ID Klien</th>
                     <th>Barang</th>
                     <th>Jenis Barang</th>
                     <th>Harga</th>
@@ -640,6 +661,9 @@ export default function HomePage() {
                       <Fragment key={client._id}>
                         <tr>
                           <td data-label="Nama Klien">{client.namaKlien}</td>
+                          {userRole === 'admin' && (
+                            <td data-label="ID Klien">{client.clientId ?? '-'}</td>
+                          )}
                           <td data-label="Barang">{client.namaBarang}</td>
                           <td data-label="Jenis Barang">{client.jenisBarang ?? '-'}</td>
                           <td data-label="Harga">{formatCurrency(client.hargaBarang)}</td>
@@ -701,13 +725,10 @@ export default function HomePage() {
                         </tr>
                         {isExpanded && client.cicilan && (
                           <tr className="cicilan-detail-row">
-                            <td colSpan={9}>
+                            <td colSpan={userRole === 'admin' ? 10 : 9}>
                               <div className="cicilan-detail">
                                 {client.cicilan.map((cic) => {
-                                  const cikNominal =
-                                    userRole === 'guest'
-                                      ? calculateClientValues(client).cicilanPerbulan
-                                      : cic.jumlah;
+                                  const cikNominal = cic.jumlah;
 
                                   return (
                                     <div key={cic.bulanKe} className="cicilan-item">
@@ -749,6 +770,7 @@ export default function HomePage() {
             </div>
           )}
         </div>
+      )}
       </section>
 
       {editingClient && (
@@ -810,6 +832,12 @@ export default function HomePage() {
                 <span>Harga Barang</span>
                 <strong>{formatCurrency(detailClient.hargaBarang)}</strong>
               </div>
+              {userRole === 'admin' && detailClient.clientId && (
+                <div className="summary-item">
+                  <span>ID Klien</span>
+                  <strong>{detailClient.clientId}</strong>
+                </div>
+              )}
               <div className="summary-item">
                 <span>DP</span>
                 <strong>{formatCurrency(detailClient.dp)}</strong>

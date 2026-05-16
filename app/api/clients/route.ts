@@ -1,6 +1,26 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 
+function generateClientId() {
+  const randomDigits = Math.floor(Math.random() * 100000)
+    .toString()
+    .padStart(5, '0');
+  return `Z${randomDigits}`;
+}
+
+async function generateUniqueClientId(db: Awaited<ReturnType<typeof connectToDatabase>>) {
+  const collection = db.collection('clients');
+  let clientId: string;
+  let exists = true;
+
+  while (exists) {
+    clientId = generateClientId();
+    exists = await collection.findOne({ clientId }) !== null;
+  }
+
+  return clientId!;
+}
+
 export async function GET() {
   const db = await connectToDatabase();
   const clients = await db
@@ -9,8 +29,21 @@ export async function GET() {
     .sort({ createdAt: -1 })
     .toArray();
 
+  const clientsWithIds = await Promise.all(
+    clients.map(async (client) => {
+      if (client.clientId) return client;
+
+      const clientId = await generateUniqueClientId(db);
+      await db.collection('clients').updateOne(
+        { _id: client._id },
+        { $set: { clientId } }
+      );
+      return { ...client, clientId };
+    })
+  );
+
   return NextResponse.json(
-    clients.map((client) => ({
+    clientsWithIds.map((client) => ({
       ...client,
       _id: client._id.toString(),
       createdAt: client.createdAt?.toISOString() ?? null,
@@ -52,7 +85,9 @@ export async function POST(request: Request) {
   }
 
   const db = await connectToDatabase();
+  const clientId = await generateUniqueClientId(db);
   const inserted = await db.collection('clients').insertOne({
+    clientId,
     namaKlien,
     namaBarang,
     jenisBarang,
