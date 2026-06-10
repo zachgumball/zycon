@@ -533,6 +533,15 @@ a:hover {
   flex: 1 1 110px;
   min-width: 110px;
   justify-content: center;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(168, 85, 247, 0.12));
+  color: var(--text);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.actions-cell .action-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(168, 85, 247, 0.22));
+  border-color: rgba(99, 102, 241, 0.45);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 1024px) {
@@ -744,6 +753,92 @@ button.small {
   button.small {
     padding: 8px 12px;
     font-size: 0.75rem;
+  }
+}
+
+/* ========== Motion & Desktop-only Animation ========== */
+.desktop-animated {
+  animation: modalRise 700ms cubic-bezier(0.18, 0.8, 0.18, 1), cardGlow 4s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+.login-card {
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.login-animated-shell {
+  position: relative;
+  overflow: hidden;
+}
+
+.login-animated-shell::before,
+.login-animated-shell::after {
+  content: '';
+  position: absolute;
+  inset: auto;
+  border-radius: 999px;
+  filter: blur(26px);
+  opacity: 0.55;
+  pointer-events: none;
+  animation: floatOrb 8s ease-in-out infinite alternate;
+}
+
+.login-animated-shell::before {
+  width: 280px;
+  height: 280px;
+  top: 5%;
+  left: 6%;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.38), rgba(56, 189, 248, 0));
+}
+
+.login-animated-shell::after {
+  width: 320px;
+  height: 320px;
+  right: 4%;
+  bottom: 4%;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.32), rgba(168, 85, 247, 0));
+  animation-delay: -3.2s;
+}
+
+@keyframes modalRise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes cardGlow {
+  0% {
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.28);
+  }
+  100% {
+    box-shadow: 0 26px 58px rgba(56, 189, 248, 0.18), 0 18px 40px rgba(168, 85, 247, 0.14);
+  }
+}
+
+@keyframes floatOrb {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(10px, -18px, 0) scale(1.05);
+  }
+  100% {
+    transform: translate3d(-14px, 10px, 0) scale(0.97);
+  }
+}
+
+@media (max-width: 768px) {
+  .desktop-animated,
+  .login-animated-shell::before,
+  .login-animated-shell::after {
+    animation: none !important;
+    transform: none !important;
   }
 }
 

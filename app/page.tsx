@@ -138,7 +138,7 @@ export default function HomePage() {
   }
 
   async function handleDeletePaymentLog(clientId: string, index: number) {
-    const client = clients.find((item) => item._id === clientId);
+    const client = clients.find((item) => item._id === clientId) ?? detailClient;
     if (!client || !client._id) return;
 
     if (!window.confirm('Hapus riwayat pembayaran ini?')) return;
@@ -421,9 +421,9 @@ export default function HomePage() {
 
   if (showLoginModal) {
     return (
-      <main className="page-shell">
-        <div className="modal-overlay" style={{ zIndex: 100 }}>
-          <div className="edit-modal" style={{ maxWidth: '420px' }}>
+      <main className="page-shell login-animated-shell">
+        <div className="modal-overlay login-overlay" style={{ zIndex: 100 }}>
+          <div className="edit-modal login-card desktop-animated" style={{ maxWidth: '420px' }}>
             <div className="modal-header">
               <div>
                 <p className="eyebrow">Zynext Counter</p>
@@ -845,7 +845,7 @@ export default function HomePage() {
 
       {detailClient && (
         <div className="modal-overlay" onClick={() => setDetailClient(null)}>
-          <div className="edit-modal" onClick={(event) => event.stopPropagation()}>
+          <div className="edit-modal desktop-animated" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <p className="eyebrow">Detail Klien</p>
@@ -862,6 +862,15 @@ export default function HomePage() {
             </div>
             <div className="summary-grid">
               <div className="summary-item">
+                <span>Sisa Pembayaran</span>
+                <strong>{formatCurrency(
+                  (detailClient.cicilan ?? []).reduce(
+                    (sum, cic) => sum + Math.max(0, cic.jumlah - (cic.dibayar ?? 0)),
+                    0
+                  )
+                )}</strong>
+              </div>
+              <div className="summary-item">
                 <span>Nama Barang</span>
                 <strong>{detailClient.namaBarang}</strong>
               </div>
@@ -872,6 +881,10 @@ export default function HomePage() {
               <div className="summary-item">
                 <span>Harga Barang</span>
                 <strong>{formatCurrency(detailClient.hargaBarang)}</strong>
+              </div>
+              <div className="summary-item">
+                <span>Keuntungan</span>
+                <strong>{formatCurrency(calculateClientValues(detailClient).totalKeuntungan)}</strong>
               </div>
               {userRole === 'admin' && detailClient.clientId && (
                 <div className="summary-item">
@@ -906,18 +919,24 @@ export default function HomePage() {
                         ? calculateClientValues(detailClient).cicilanPerbulan
                         : cic.jumlah;
 
+                    const paidAmount = cic.dibayar ?? 0;
+                    const remainingAmount = Math.max(0, detailCicilanAmount - paidAmount);
+
                     return (
                       <div key={cic.bulanKe} className="cicilan-item" style={{ cursor: 'default' }}>
                         <span>
                           Bulan {cic.bulanKe}: {formatCurrency(detailCicilanAmount)}
-                          {((cic.dibayar ?? 0) > 0) && !cic.sudahBayar && (
-                            <span className="text-muted"> · sudah dibayar {formatCurrency(cic.dibayar ?? 0)}</span>
+                          {paidAmount > 0 && !cic.sudahBayar && (
+                            <span className="text-muted"> · sudah dibayar {formatCurrency(paidAmount)}</span>
+                          )}
+                          {!cic.sudahBayar && (
+                            <span className="text-muted"> · sisa {formatCurrency(remainingAmount)}</span>
                           )}
                         </span>
                         <strong>
                           {cic.sudahBayar
                             ? 'Lunas'
-                            : (cic.dibayar ?? 0) > 0
+                            : paidAmount > 0
                               ? 'Bayar sebagian'
                               : 'Belum lunas'}
                         </strong>
@@ -935,8 +954,13 @@ export default function HomePage() {
                 <div className="payment-log-list">
                   {[...detailClient.paymentLogs]
                     .sort((a, b) => new Date(b.tanggalBayar).getTime() - new Date(a.tanggalBayar).getTime())
-                    .map((log, index) => (
-                      <div key={`${log.bulanKe}-${index}`} className="payment-log-item">
+                    .map((log) => {
+                      const originalIndex = detailClient.paymentLogs?.findIndex(
+                        (item) => item === log
+                      ) ?? -1;
+
+                      return (
+                        <div key={`${log.bulanKe}-${log.tanggalBayar}-${originalIndex}`} className="payment-log-item">
                         <div>
                           <strong>Bulan {log.bulanKe}</strong>
                           <span>{formatCurrency(log.jumlah)}</span>
@@ -952,14 +976,15 @@ export default function HomePage() {
                             <button
                               type="button"
                               className="ghost small"
-                              onClick={() => detailClient._id && handleDeletePaymentLog(detailClient._id, index)}
+                              onClick={() => detailClient._id && originalIndex >= 0 && handleDeletePaymentLog(detailClient._id, originalIndex)}
                             >
                               Hapus
                             </button>
                           )}
                         </div>
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                 </div>
               ) : (
                 <p className="empty-state">Belum ada catatan pembayaran.</p>
