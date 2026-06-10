@@ -113,7 +113,8 @@ export default function HomePage() {
   async function handleUpdateCicilan(
     id: string,
     cicilan: ClientData['cicilan'],
-    paymentLogs?: ClientData['paymentLogs']
+    paymentLogs?: ClientData['paymentLogs'],
+    successText = 'Status cicilan berhasil diperbarui.'
   ) {
     try {
       setError(null);
@@ -130,10 +131,32 @@ export default function HomePage() {
 
       if (!response.ok) throw new Error('Gagal memperbarui cicilan.');
       await fetchClients();
-      setSuccessMessage('Status cicilan berhasil diperbarui.');
+      setSuccessMessage(successText);
     } catch (err) {
       setError((err as Error).message);
     }
+  }
+
+  async function handleDeletePaymentLog(clientId: string, index: number) {
+    const client = clients.find((item) => item._id === clientId);
+    if (!client || !client._id) return;
+
+    if (!window.confirm('Hapus riwayat pembayaran ini?')) return;
+
+    const updatedPaymentLogs = (client.paymentLogs ?? []).filter((_, itemIndex) => itemIndex !== index);
+
+    await handleUpdateCicilan(
+      client._id,
+      client.cicilan ?? [],
+      updatedPaymentLogs,
+      'Riwayat pembayaran berhasil dihapus.'
+    );
+
+    setDetailClient((current) =>
+      current && current._id === clientId
+        ? { ...current, paymentLogs: updatedPaymentLogs }
+        : current
+    );
   }
 
   function handleToggleCicilanRow(id: string) {
@@ -146,9 +169,15 @@ export default function HomePage() {
     const targetPayment = client.cicilan.find((c) => c.bulanKe === bulanKe);
     if (!targetPayment) return;
 
-    const updated = client.cicilan.map((c) =>
-      c.bulanKe === bulanKe ? { ...c, sudahBayar: !c.sudahBayar } : c
-    );
+    const updated = client.cicilan.map((c) => {
+      if (c.bulanKe !== bulanKe) return c;
+
+      if (c.sudahBayar) {
+        return { ...c, sudahBayar: false, dibayar: 0 };
+      }
+
+      return c;
+    });
 
     const paymentLogs =
       !targetPayment.sudahBayar && targetPayment.jumlah > 0
@@ -169,8 +198,10 @@ export default function HomePage() {
     const installment = client.cicilan?.find((c) => c.bulanKe === bulanKe);
     if (!installment) return;
 
-    setPaymentTarget({ client, bulanKe, expected: installment.jumlah });
-    setPaymentAmount(installment.jumlah.toString());
+    const remaining = Math.max(0, installment.jumlah - (installment.dibayar ?? 0));
+
+    setPaymentTarget({ client, bulanKe, expected: remaining });
+    setPaymentAmount(remaining.toString());
     setPaymentError(null);
   }
 
@@ -375,9 +406,10 @@ export default function HomePage() {
   const totalOutstanding = summaryClients.reduce(
     (sum, client) =>
       sum +
-      (client.cicilan?.reduce((installmentSum, c) =>
-        installmentSum + (c.sudahBayar ? 0 : c.jumlah),
-      0) ?? 0),
+      (client.cicilan?.reduce((installmentSum, c) => {
+        const remaining = Math.max(0, c.jumlah - (c.dibayar ?? 0));
+        return installmentSum + (c.sudahBayar ? 0 : remaining);
+      }, 0) ?? 0),
     0
   );
   const totalUnpaidInstallments = summaryClients.reduce(
@@ -681,21 +713,21 @@ export default function HomePage() {
                               <>
                                 <button
                                   type="button"
-                                  className="secondary"
+                                  className="secondary action-button"
                                   onClick={() => setDetailClient(client)}
                                 >
                                   Detail
                                 </button>
                                 <button
                                   type="button"
-                                  className="secondary"
+                                  className="secondary action-button"
                                   onClick={() => setEditingClient(client)}
                                 >
                                   Edit
                                 </button>
                                 <button
                                   type="button"
-                                  className="secondary"
+                                  className="secondary action-button"
                                   disabled={deletingId === client._id}
                                   onClick={() => client._id && handleDelete(client._id)}
                                 >
@@ -710,7 +742,7 @@ export default function HomePage() {
                                 </button>
                                 <button
                                   type="button"
-                                  className="secondary small"
+                                  className="secondary action-button"
                                   onClick={() => client._id && handleToggleCicilanRow(client._id)}
                                 >
                                   {isExpanded ? 'Tutup Cicilan' : 'Lihat Cicilan'}
@@ -732,7 +764,9 @@ export default function HomePage() {
                             <td colSpan={userRole === 'admin' ? 10 : 9}>
                               <div className="cicilan-detail">
                                 {client.cicilan.map((cic) => {
-                                  const cikNominal = cic.jumlah;
+                                  const cikNominal = cic.dibayar && cic.dibayar > cic.jumlah ? cic.dibayar : cic.jumlah;
+                                  const paidAmount = cic.dibayar ?? 0;
+                                  const remainingAmount = Math.max(0, cikNominal - paidAmount);
 
                                   return (
                                     <div key={cic.bulanKe} className="cicilan-item">
@@ -744,6 +778,9 @@ export default function HomePage() {
                                         />
                                         <span>
                                           Bulan {cic.bulanKe}: {formatCurrency(cikNominal)}
+                                          {paidAmount > 0 && !cic.sudahBayar && (
+                                            <span className="text-muted"> · sisa {formatCurrency(remainingAmount)}</span>
+                                          )}
                                         </span>
                                       </div>
                                       {userRole === 'admin' && (
@@ -873,8 +910,17 @@ export default function HomePage() {
                       <div key={cic.bulanKe} className="cicilan-item" style={{ cursor: 'default' }}>
                         <span>
                           Bulan {cic.bulanKe}: {formatCurrency(detailCicilanAmount)}
+                          {((cic.dibayar ?? 0) > 0) && !cic.sudahBayar && (
+                            <span className="text-muted"> · sudah dibayar {formatCurrency(cic.dibayar ?? 0)}</span>
+                          )}
                         </span>
-                        <strong>{cic.sudahBayar ? 'Lunas' : 'Belum lunas'}</strong>
+                        <strong>
+                          {cic.sudahBayar
+                            ? 'Lunas'
+                            : (cic.dibayar ?? 0) > 0
+                              ? 'Bayar sebagian'
+                              : 'Belum lunas'}
+                        </strong>
                       </div>
                     );
                   })}
@@ -895,12 +941,23 @@ export default function HomePage() {
                           <strong>Bulan {log.bulanKe}</strong>
                           <span>{formatCurrency(log.jumlah)}</span>
                         </div>
-                        <small>
-                          {new Intl.DateTimeFormat('id-ID', {
-                            dateStyle: 'medium',
-                            timeStyle: 'short',
-                          }).format(new Date(log.tanggalBayar))}
-                        </small>
+                        <div className="payment-log-actions">
+                          <small>
+                            {new Intl.DateTimeFormat('id-ID', {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            }).format(new Date(log.tanggalBayar))}
+                          </small>
+                          {userRole === 'admin' && (
+                            <button
+                              type="button"
+                              className="ghost small"
+                              onClick={() => detailClient._id && handleDeletePaymentLog(detailClient._id, index)}
+                            >
+                              Hapus
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                 </div>
@@ -963,7 +1020,7 @@ export default function HomePage() {
                 <input value={paymentTarget.client.namaKlien} readOnly />
               </div>
               <div className="field">
-                <label>Nominal Angsuran Saat Ini</label>
+                <label>Sisa angsuran bulan ini</label>
                 <input value={formatCurrency(paymentTarget.expected)} readOnly />
               </div>
               <div className="field">

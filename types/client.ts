@@ -2,6 +2,7 @@ export interface CicilanItem {
   bulanKe: number;
   jumlah: number;
   sudahBayar: boolean;
+  dibayar?: number;
 }
 
 export interface PaymentLogItem {

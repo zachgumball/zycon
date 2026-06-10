@@ -20,6 +20,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     bunga,
     tenorBulan,
     dp,
+    cicilan,
+    paymentLogs,
   } = body;
 
   if (
@@ -40,20 +42,30 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 
   const db = await connectToDatabase();
+  const updatePayload: Record<string, unknown> = {
+    namaKlien,
+    namaBarang,
+    jenisBarang,
+    hargaBarang: Number(hargaBarang),
+    hargaAsli: Number(hargaAsli),
+    tanggalPembelian,
+    bunga: Number(bunga),
+    tenorBulan: Number(tenorBulan),
+    dp: Number(dp),
+  };
+
+  if (Array.isArray(cicilan)) {
+    updatePayload.cicilan = cicilan;
+  }
+
+  if (Array.isArray(paymentLogs)) {
+    updatePayload.paymentLogs = paymentLogs;
+  }
+
   const result = await db.collection('clients').findOneAndUpdate(
     { _id: new ObjectId(id) },
     {
-      $set: {
-        namaKlien,
-        namaBarang,
-        jenisBarang,
-        hargaBarang: Number(hargaBarang),
-        hargaAsli: Number(hargaAsli),
-        tanggalPembelian,
-        bunga: Number(bunga),
-        tenorBulan: Number(tenorBulan),
-        dp: Number(dp),
-      },
+      $set: updatePayload,
     },
     { returnDocument: 'after' }
   );

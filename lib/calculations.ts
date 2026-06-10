@@ -14,14 +14,16 @@ function roundInstallment(value: number) {
 export function calculateClientValues(client: ClientData): ClientComputed {
   const sisaTagihan = client.hargaBarang - client.dp;
   const bungaTotal = sisaTagihan * (client.bunga / 100) * client.tenorBulan;
-  const totalKeuntungan = (client.hargaBarang - client.hargaAsli) + bungaTotal;
   const cicilanPerbulan = (sisaTagihan + bungaTotal) / client.tenorBulan;
+  const cicilanPerbulanRounded = roundInstallment(cicilanPerbulan);
+  const roundingSurplus = cicilanPerbulanRounded * client.tenorBulan - (sisaTagihan + bungaTotal);
+  const totalKeuntungan = (client.hargaBarang - client.hargaAsli) + bungaTotal + roundingSurplus;
 
   return {
     sisaTagihan: Math.round(sisaTagihan),
     bungaTotal: Math.round(bungaTotal),
     totalKeuntungan: Math.round(totalKeuntungan),
-    cicilanPerbulan: roundInstallment(cicilanPerbulan),
+    cicilanPerbulan: cicilanPerbulanRounded,
   };
 }
 
@@ -34,10 +36,27 @@ export function generateCicilanSchedule(client: ClientData) {
       bulanKe: i,
       jumlah: cicilanPerbulan,
       sudahBayar: false,
+      dibayar: 0,
     });
   }
 
   return cicilan;
+}
+
+export function rebuildCicilanSchedule(client: ClientData) {
+  const currentSchedule = client.cicilan ?? [];
+  const previousMap = new Map(currentSchedule.map((item) => [item.bulanKe, item]));
+  const regenerated = generateCicilanSchedule(client);
+
+  return regenerated.map((item) => {
+    const previous = previousMap.get(item.bulanKe);
+
+    return {
+      ...item,
+      sudahBayar: previous?.sudahBayar ?? false,
+      dibayar: previous?.dibayar ?? 0,
+    };
+  });
 }
 
 export function applyManualPayment(
@@ -47,27 +66,32 @@ export function applyManualPayment(
 ): ClientData['cicilan'] {
   if (!client.cicilan) return [];
 
-  const updated = client.cicilan.map((item) => ({ ...item }));
+  const updated = client.cicilan.map((item) => ({
+    ...item,
+    dibayar: item.dibayar ?? 0,
+  }));
   const target = updated.find((item) => item.bulanKe === bulanKe);
   if (!target) return updated;
 
   const expectedAmount = target.jumlah;
-  const diff = actualAmount - expectedAmount;
-  target.jumlah = actualAmount;
-  target.sudahBayar = true;
+  const currentPaid = target.dibayar ?? 0;
+  const totalPaidForMonth = currentPaid + actualAmount;
+  const overpayment = Math.max(0, totalPaidForMonth - expectedAmount);
 
-  const future = updated.filter((item) => item.bulanKe > bulanKe && !item.sudahBayar);
-  if (future.length === 0 || diff === 0) return updated;
+  target.dibayar = totalPaidForMonth;
+  target.sudahBayar = target.dibayar >= expectedAmount;
 
-  const totalAdjustment = -diff;
-  const baseChange = Math.trunc(totalAdjustment / future.length);
-  let remainder = totalAdjustment - baseChange * future.length;
+  if (overpayment > 0) {
+    const future = updated.filter((item) => item.bulanKe > bulanKe && !item.sudahBayar);
+    if (future.length > 0) {
+      const totalAdjustment = -overpayment;
+      const baseChange = Math.trunc(totalAdjustment / future.length / 1000) * 1000;
 
-  future.forEach((item) => {
-    const extra = remainder !== 0 ? Math.sign(totalAdjustment) : 0;
-    item.jumlah += baseChange + extra;
-    remainder -= extra;
-  });
+      future.forEach((item) => {
+        item.jumlah = roundInstallment(item.jumlah + baseChange);
+      });
+    }
+  }
 
   return updated;
 }

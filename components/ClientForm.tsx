@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { ClientData } from '@/types/client';
-import { calculateClientValues, generateCicilanSchedule, formatCurrency } from '@/lib/calculations';
+import { calculateClientValues, formatCurrency, rebuildCicilanSchedule } from '@/lib/calculations';
 
 interface ClientFormProps {
   initialData?: ClientData | null;
@@ -91,7 +91,7 @@ export default function ClientForm({ initialData, onSave, onCancel, isSaving = f
 
     const dataToSave = {
       ...form,
-      cicilan: !initialData ? generateCicilanSchedule(form) : form.cicilan,
+      cicilan: rebuildCicilanSchedule(form),
     };
     onSave(dataToSave);
   }
