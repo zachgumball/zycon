@@ -594,6 +594,10 @@ export default function HomePage() {
               <strong>{formatCurrency(summaryClients.reduce((sum, client) => sum + client.dp, 0))}</strong>
             </div>
             <div className="summary-item">
+              <span>Total Biaya Pembelian</span>
+              <strong>{formatCurrency(summaryClients.reduce((sum, client) => sum + client.hargaAsli, 0))}</strong>
+            </div>
+            <div className="summary-item">
               <span>Total Piutang</span>
               <strong>{formatCurrency(totalOutstanding)}</strong>
             </div>
