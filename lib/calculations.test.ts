@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { applyManualPayment, calculateClientValues, generateCicilanSchedule, rebuildCicilanSchedule } from './calculations';
+import {
+  applyManualPayment,
+  calculateClientValues,
+  calculatePaymentReminders,
+  calculateRemainingPiutang,
+  generateCicilanSchedule,
+  rebuildCicilanSchedule,
+} from './calculations';
 import type { ClientData } from '../types/client';
 
 describe('applyManualPayment', () => {
@@ -160,6 +167,63 @@ describe('calculateClientValues', () => {
 
     expect(computed.cicilanPerbulan).toBe(467000);
     expect(computed.totalKeuntungan).toBe(802000);
+  });
+});
+
+describe('calculateRemainingPiutang', () => {
+  it('uses payment history to reduce remaining balance when dibayar is missing', () => {
+    const client: ClientData = {
+      namaKlien: 'Rina',
+      namaBarang: 'Laptop',
+      jenisBarang: 'Elektronik',
+      hargaBarang: 3000000,
+      hargaAsli: 2500000,
+      tanggalPembelian: '2026-05-01',
+      bunga: 2,
+      tenorBulan: 6,
+      dp: 500000,
+      cicilan: [
+        { bulanKe: 1, jumlah: 100000, sudahBayar: false },
+        { bulanKe: 2, jumlah: 100000, sudahBayar: false },
+      ],
+      paymentLogs: [
+        { bulanKe: 1, jumlah: 40000, tanggalBayar: '2026-06-01T00:00:00.000Z' },
+      ],
+    };
+
+    expect(calculateRemainingPiutang(client)).toBe(160000);
+  });
+});
+
+describe('calculatePaymentReminders', () => {
+  it('flags clients whose next installment due date is within seven days', () => {
+    const referenceDate = new Date('2026-06-25T00:00:00.000Z');
+    const clients: ClientData[] = [
+      {
+        namaKlien: 'Rina',
+        namaBarang: 'Laptop',
+        jenisBarang: 'Elektronik',
+        hargaBarang: 3000000,
+        hargaAsli: 2500000,
+        tanggalPembelian: '2026-05-01',
+        bunga: 2,
+        tenorBulan: 6,
+        dp: 500000,
+        cicilan: [
+          { bulanKe: 1, jumlah: 100000, sudahBayar: true, dibayar: 100000 },
+          { bulanKe: 2, jumlah: 100000, sudahBayar: false, dibayar: 0 },
+        ],
+        paymentLogs: [
+          { bulanKe: 1, jumlah: 100000, tanggalBayar: '2026-06-02T00:00:00.000Z' },
+        ],
+      },
+    ];
+
+    const reminders = calculatePaymentReminders(clients, referenceDate);
+
+    expect(reminders).toHaveLength(1);
+    expect(reminders[0].daysLeft).toBe(7);
+    expect(reminders[0].status).toBe('upcoming');
   });
 });
 

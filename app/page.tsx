@@ -6,6 +6,8 @@ import type { ClientData } from '@/types/client';
 import {
   applyManualPayment,
   calculateClientValues,
+  calculatePaymentReminders,
+  calculateRemainingPiutang,
   formatCurrency,
 } from '@/lib/calculations';
 
@@ -403,21 +405,18 @@ export default function HomePage() {
 
   const summaryClients = userRole === 'guest' ? filteredClients : clients;
   const totalInstallments = summaryClients.reduce((sum, client) => sum + (client.cicilan?.length ?? 0), 0);
-  const totalOutstanding = summaryClients.reduce(
-    (sum, client) =>
-      sum +
-      (client.cicilan?.reduce((installmentSum, c) => {
-        const remaining = Math.max(0, c.jumlah - (c.dibayar ?? 0));
-        return installmentSum + (c.sudahBayar ? 0 : remaining);
-      }, 0) ?? 0),
+  const totalPiutang = summaryClients.reduce(
+    (sum, client) => sum + (client.cicilan?.reduce((installmentSum, c) => installmentSum + c.jumlah, 0) ?? 0),
     0
   );
+  const sisaPiutang = summaryClients.reduce((sum, client) => sum + calculateRemainingPiutang(client), 0);
   const totalUnpaidInstallments = summaryClients.reduce(
     (sum, client) => sum + (client.cicilan?.filter((c) => !c.sudahBayar).length ?? 0),
     0
   );
   const totalKeuntungan = summaryClients.reduce((sum, client) => sum + calculateClientValues(client).totalKeuntungan, 0);
   const averageTenor = summaryClients.length ? Math.round(summaryClients.reduce((sum, client) => sum + client.tenorBulan, 0) / summaryClients.length) : 0;
+  const paymentReminders = useMemo(() => calculatePaymentReminders(summaryClients), [summaryClients]);
 
   if (showLoginModal) {
     return (
@@ -599,7 +598,11 @@ export default function HomePage() {
             </div>
             <div className="summary-item">
               <span>Total Piutang</span>
-              <strong>{formatCurrency(totalOutstanding)}</strong>
+              <strong>{formatCurrency(totalPiutang)}</strong>
+            </div>
+            <div className="summary-item">
+              <span>Sisa Piutang</span>
+              <strong>{formatCurrency(sisaPiutang)}</strong>
             </div>
             <div className="summary-item">
               <span>Cicilan Dibayar</span>
@@ -624,6 +627,36 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+        {userRole === 'admin' && paymentReminders.length > 0 && (
+          <div className="panel">
+            <div className="panel-header">
+              <h2>Pengingat Jatuh Tempo</h2>
+            </div>
+            <div className="reminder-list">
+              {paymentReminders.map((reminder) => (
+                <div key={`${reminder.clientId ?? reminder.clientName}-${reminder.month}`} className="reminder-item">
+                  <div>
+                    <strong>{reminder.clientName}</strong>
+                    <p>
+                      Bulan {reminder.month} · {formatCurrency(reminder.amount)}
+                    </p>
+                  </div>
+                  <div className="reminder-meta">
+                    <span className={`reminder-badge ${reminder.status}`}>
+                      {reminder.daysLeft < 0 ? `${Math.abs(reminder.daysLeft)} hari terlambat` : `${reminder.daysLeft} hari lagi`}
+                    </span>
+                    <small>
+                      {new Intl.DateTimeFormat('id-ID', {
+                        dateStyle: 'medium',
+                      }).format(new Date(reminder.dueDate))}
+                    </small>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {userRole === 'admin' && (
         <div className="panel">

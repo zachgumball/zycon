@@ -27,6 +27,85 @@ export function calculateClientValues(client: ClientData): ClientComputed {
   };
 }
 
+export function calculateRemainingPiutang(client: ClientData): number {
+  const paymentByMonth = (client.paymentLogs ?? []).reduce<Record<number, number>>((acc, log) => {
+    acc[log.bulanKe] = (acc[log.bulanKe] ?? 0) + log.jumlah;
+    return acc;
+  }, {});
+
+  return (client.cicilan ?? []).reduce((sum, installment) => {
+    if (installment.sudahBayar) {
+      return sum;
+    }
+
+    const paidFromLogs = paymentByMonth[installment.bulanKe] ?? 0;
+    const paidAmount = Math.max(installment.dibayar ?? 0, paidFromLogs);
+    const remaining = Math.max(0, installment.jumlah - paidAmount);
+
+    return sum + remaining;
+  }, 0);
+}
+
+export interface PaymentReminder {
+  clientId?: string;
+  clientName: string;
+  month: number;
+  amount: number;
+  dueDate: string;
+  daysLeft: number;
+  status: 'upcoming' | 'overdue';
+}
+
+export function calculatePaymentReminders(
+  clients: ClientData[],
+  referenceDate: Date = new Date()
+): PaymentReminder[] {
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+
+  return clients
+    .flatMap((client) => {
+      const installments = client.cicilan ?? [];
+      const unpaidInstallments = installments.filter((item) => !item.sudahBayar);
+
+      if (unpaidInstallments.length === 0) {
+        return [];
+      }
+
+      const latestPaymentDate = (client.paymentLogs ?? [])
+        .map((log) => new Date(log.tanggalBayar))
+        .filter((value) => !Number.isNaN(value.getTime()))
+        .sort((a, b) => b.getTime() - a.getTime())[0];
+
+      const fallbackDate = client.tanggalPembelian
+        ? new Date(client.tanggalPembelian)
+        : new Date();
+
+      const baseDate = latestPaymentDate ?? fallbackDate;
+      const dueDate = new Date(baseDate);
+      dueDate.setDate(dueDate.getDate() + 30);
+
+      const diffDays = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0 || diffDays > 7) {
+        return [];
+      }
+
+      return [
+        {
+          clientId: client._id,
+          clientName: client.namaKlien,
+          month: unpaidInstallments[0].bulanKe,
+          amount: unpaidInstallments[0].jumlah,
+          dueDate: dueDate.toISOString(),
+          daysLeft: diffDays,
+          status: diffDays < 0 ? 'overdue' : 'upcoming',
+        },
+      ];
+    })
+    .sort((a, b) => a.daysLeft - b.daysLeft);
+}
+
 export function generateCicilanSchedule(client: ClientData) {
   const { cicilanPerbulan } = calculateClientValues(client);
   const cicilan = [];
