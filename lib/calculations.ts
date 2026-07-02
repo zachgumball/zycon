@@ -91,6 +91,8 @@ export function calculatePaymentReminders(
         return [];
       }
 
+      const status: PaymentReminder['status'] = diffDays < 0 ? 'overdue' : 'upcoming';
+
       return [
         {
           clientId: client._id,
@@ -99,7 +101,7 @@ export function calculatePaymentReminders(
           amount: unpaidInstallments[0].jumlah,
           dueDate: dueDate.toISOString(),
           daysLeft: diffDays,
-          status: diffDays < 0 ? 'overdue' : 'upcoming',
+          status,
         },
       ];
     })
