@@ -18,12 +18,10 @@ export default function HomePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [newFormKey, setNewFormKey] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [userRole, setUserRole] = useState<'admin' | 'guest' | null>(null);
-  const [guestId, setGuestId] = useState('');
+  const [userRole, setUserRole] = useState<'admin' | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [showLoginModal, setShowLoginModal] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [loginTab, setLoginTab] = useState<'admin' | 'guest'>('admin');
   const [adminPassword, setAdminPassword] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
@@ -349,14 +347,9 @@ export default function HomePage() {
         (statusFilter === 'paid' && isPaid) ||
         (statusFilter === 'unpaid' && !isPaid);
 
-      const isGuestMatch =
-        userRole === 'guest'
-          ? client.clientId?.toLowerCase() === normalizedSearch
-          : true;
-
-      return matchesSearch && statusMatches && isGuestMatch;
+      return matchesSearch && statusMatches;
     });
-  }, [clients, searchTerm, statusFilter, userRole, guestId]);
+  }, [clients, searchTerm, statusFilter]);
 
   function handleAdminLogin() {
     setLoginError(null);
@@ -370,40 +363,15 @@ export default function HomePage() {
     }
   }
 
-  function handleGuestLogin() {
-    setLoginError(null);
-    if (!guestId.trim()) {
-      setLoginError('Masukkan ID Klien.');
-      return;
-    }
-
-    const normalizedId = guestId.trim().toLowerCase();
-    const matchedClient = clients.find(
-      (client) => client.clientId?.toLowerCase() === normalizedId
-    );
-
-    if (!matchedClient) {
-      setLoginError('ID Klien tidak ditemukan.');
-      return;
-    }
-
-    setUserRole('guest');
-    setShowLoginModal(false);
-    setSearchTerm(matchedClient.clientId || '');
-    setGuestId('');
-  }
-
   function handleLogout() {
     setUserRole(null);
     setShowLoginModal(true);
-    setGuestId('');
     setAdminPassword('');
-    setLoginTab('admin');
     setSearchTerm('');
     setStatusFilter('all');
   }
 
-  const summaryClients = userRole === 'guest' ? filteredClients : clients;
+  const summaryClients = clients;
   const totalInstallments = summaryClients.reduce((sum, client) => sum + (client.cicilan?.length ?? 0), 0);
   const totalPiutang = summaryClients.reduce(
     (sum, client) => sum + (client.cicilan?.reduce((installmentSum, c) => installmentSum + c.jumlah, 0) ?? 0),
@@ -430,69 +398,29 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="auth-tabs">
-              <button
-                type="button"
-                className={`auth-tab ${loginTab === 'admin' ? 'active' : ''}`}
-                onClick={() => setLoginTab('admin')}
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                className={`auth-tab ${loginTab === 'guest' ? 'active' : ''}`}
-                onClick={() => setLoginTab('guest')}
-              >
-                Guest
-              </button>
-            </div>
-
             <div className="auth-form">
               {loginError && <div className="alert" style={{ marginBottom: '16px' }}>{loginError}</div>}
 
-              {loginTab === 'admin' ? (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleAdminLogin();
-                  }}
-                >
-                  <div className="field">
-                    <label htmlFor="adminPassword">Password Admin</label>
-                    <input
-                      id="adminPassword"
-                      type="password"
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                      placeholder="Masukkan password admin"
-                    />
-                  </div>
-                  <button type="submit" className="primary" style={{ width: '100%', marginTop: '16px' }}>
-                    Masuk sebagai Admin
-                  </button>
-                </form>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleGuestLogin();
-                  }}
-                >
-                  <div className="field">
-                    <label htmlFor="guestId">ID Klien</label>
-                    <input
-                      id="guestId"
-                      type="text"
-                      value={guestId}
-                      onChange={(e) => setGuestId(e.target.value)}
-                      placeholder="Masukkan ID Klien Anda"
-                    />
-                  </div>
-                  <button type="submit" className="primary" style={{ width: '100%', marginTop: '16px' }}>
-                    Masuk sebagai Guest
-                  </button>
-                </form>
-              )}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleAdminLogin();
+                }}
+              >
+                <div className="field">
+                  <label htmlFor="adminPassword">Password Admin</label>
+                  <input
+                    id="adminPassword"
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="Masukkan password admin"
+                  />
+                </div>
+                <button type="submit" className="primary" style={{ width: '100%', marginTop: '16px' }}>
+                  Masuk sebagai Admin
+                </button>
+              </form>
             </div>
           </div>
         </div>
@@ -547,11 +475,6 @@ export default function HomePage() {
       </div>
 
       {/* Status Banner */}
-      {userRole === 'guest' && (
-        <div className="guest-banner">
-          <span>Anda login sebagai Guest: <strong>{summaryClients[0]?.namaKlien || searchTerm}</strong></span>
-        </div>
-      )}
       {userRole === 'admin' && (
         <div className="admin-banner">
           <span>✓ Anda login sebagai Admin</span>
@@ -571,7 +494,7 @@ export default function HomePage() {
       )}
 
       <section className="content-grid">
-        {(userRole === 'admin' || userRole === 'guest') && (
+        {userRole === 'admin' && (
         <div className="panel">
           <div className="panel-header">
             <h2>Ringkasan Data</h2>
@@ -582,12 +505,6 @@ export default function HomePage() {
               <span>Klien Aktif</span>
               <strong>{summaryClients.length}</strong>
             </div>
-            {userRole === 'guest' && summaryClients[0]?.clientId && (
-              <div className="summary-item">
-                <span>ID Klien</span>
-                <strong>{summaryClients[0].clientId}</strong>
-              </div>
-            )}
             <div className="summary-item">
               <span>Total DP</span>
               <strong>{formatCurrency(summaryClients.reduce((sum, client) => sum + client.dp, 0))}</strong>
@@ -951,10 +868,7 @@ export default function HomePage() {
               {detailClient.cicilan?.length ? (
                 <div className="cicilan-checklist">
                   {detailClient.cicilan.map((cic) => {
-                    const detailCicilanAmount =
-                      userRole === 'guest' && detailClient
-                        ? calculateClientValues(detailClient).cicilanPerbulan
-                        : cic.jumlah;
+                    const detailCicilanAmount = cic.jumlah;
 
                     const paidAmount = cic.dibayar ?? 0;
                     const remainingAmount = Math.max(0, detailCicilanAmount - paidAmount);
