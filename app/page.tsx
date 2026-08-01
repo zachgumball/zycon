@@ -22,6 +22,7 @@ export default function HomePage() {
   const [userRole, setUserRole] = useState<'admin' | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [showLoginModal, setShowLoginModal] = useState(true);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [adminPassword, setAdminPassword] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,6 +48,12 @@ export default function HomePage() {
     const savedTheme = window.localStorage.getItem('theme');
     if (savedTheme === 'dark' || savedTheme === 'light') {
       setTheme(savedTheme);
+    }
+
+    const savedAdminSession = window.localStorage.getItem('zynext-admin-session');
+    if (savedAdminSession === 'true') {
+      setUserRole('admin');
+      setShowLoginModal(false);
     }
   }, []);
 
@@ -358,6 +365,7 @@ export default function HomePage() {
     if (adminPassword === correctPassword) {
       setUserRole('admin');
       setShowLoginModal(false);
+      window.localStorage.setItem('zynext-admin-session', 'true');
       setAdminPassword('');
     } else {
       setLoginError('Password salah.');
@@ -365,11 +373,21 @@ export default function HomePage() {
   }
 
   function handleLogout() {
+    setShowLogoutModal(true);
+  }
+
+  function confirmLogout() {
     setUserRole(null);
     setShowLoginModal(true);
+    setShowLogoutModal(false);
+    window.localStorage.removeItem('zynext-admin-session');
     setAdminPassword('');
     setSearchTerm('');
     setStatusFilter('all');
+  }
+
+  function cancelLogout() {
+    setShowLogoutModal(false);
   }
 
   const summaryClients = clients;
@@ -392,7 +410,8 @@ export default function HomePage() {
       <main className="page-shell login-animated-shell">
         <div className="modal-overlay login-overlay" style={{ zIndex: 100 }}>
           <div className="edit-modal login-card desktop-animated" style={{ maxWidth: '420px' }}>
-            <div className="modal-header">
+            <div className="modal-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', textAlign: 'center' }}>
+              <img src="/logoCounter.png" alt="Logo Zynext Counter" style={{ width: 180, height: 180, objectFit: 'contain' }} />
               <div>
                 <p className="eyebrow">Zynext Counter</p>
                 <h2>Masuk ke aplikasi</h2>
@@ -431,22 +450,44 @@ export default function HomePage() {
 
   return (
     <main className="page-shell">
-      {/* Page Header */}
-      <div className="page-header">
-        <div className="page-header-content">
-          <div className="brand-stack">
-            <div className="brand-logo" aria-hidden="true">
-              <svg viewBox="0 0 64 64" role="img" aria-label="Logo">
-                <path d="M32 6C18.7 6 8 16.7 8 30s10.7 24 24 24 24-10.7 24-24S45.3 6 32 6Zm0 4c10.5 0 19 8.5 19 19S42.5 48 32 48 13 39.5 13 29 21.5 10 32 10Zm-4.5 7.8c-6.1 1.7-10.5 7.4-10.5 13.8 0 1.1.9 2 2 2s2-.9 2-2c0-4.8 3.6-8.8 8.3-9.4V34h-5c-1.1 0-2 .9-2 2s.9 2 2 2h7c1.1 0 2-.9 2-2V24c0-1.1-.9-2-2-2s-2 .9-2 2v5.1c-1.6.3-3 .9-4.5 1.7v-9.1c0-1.1-.9-2-2-2s-2 .9-2 2v5.6Z"/>
-              </svg>
+      {showLogoutModal && (
+        <div className="modal-overlay" onClick={cancelLogout}>
+          <div className="edit-modal desktop-animated" onClick={(event) => event.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Konfirmasi</p>
+                <h2>Logout akun admin?</h2>
+              </div>
             </div>
-            <div className="brand-text">
-              <h1>Zynext Counter</h1>
-              <p>Kelola data klien dan cicilan dengan mudah</p>
+            <p style={{ margin: '0 0 20px', color: 'var(--text-secondary)' }}>
+              Anda yakin ingin keluar dari sesi admin ini?
+            </p>
+            <div className="modal-actions" style={{ justifyContent: 'flex-end', gap: '12px' }}>
+              <button type="button" className="secondary-button" onClick={cancelLogout}>
+                Batal
+              </button>
+              <button type="button" className="action-button" onClick={confirmLogout}>
+                Ya, Logout
+              </button>
             </div>
           </div>
         </div>
-        <div className="page-header-actions">
+      )}
+
+      {/* Page Header */}
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+        <div className="page-header-content" style={{ flex: 1, minWidth: 280 }}>
+          <div className="brand-stack" style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: 0 }}>
+            <div className="brand-logo" aria-hidden="true" style={{ background: 'transparent', padding: 0, boxShadow: 'none', border: 'none', borderRadius: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="/logoCounter.png" alt="Logo Zynext Counter" style={{ width: 100, height: 100, objectFit: 'contain' }} />
+            </div>
+            <div className="brand-text" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <h1 style={{ margin: 0, lineHeight: 1.2 }}>Zynext Counter</h1>
+              <p style={{ margin: 0, lineHeight: 1.4 }}>Kelola data klien dan cicilan dengan mudah</p>
+            </div>
+          </div>
+        </div>
+        <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {userRole === 'admin' && (
             <button
               type="button"
