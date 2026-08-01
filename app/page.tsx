@@ -253,7 +253,6 @@ export default function HomePage() {
     setter(numValue.toString());
   }
 
-
   function handleExportCSV() {
     if (filteredClients.length === 0) {
       setError('Tidak ada data untuk diekspor.');
@@ -333,11 +332,6 @@ export default function HomePage() {
     return () => clearTimeout(timeout);
   }, [successMessage]);
 
-  const totalDp = clients.reduce((sum, client) => sum + client.dp, 0);
-  const totalPaidInstallments = clients.reduce(
-    (sum, client) => sum + (client.cicilan?.filter((c) => c.sudahBayar).length ?? 0),
-    0
-  );
   const filteredClients = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -867,11 +861,6 @@ export default function HomePage() {
             <div className="summary-grid">
               <div className="summary-item" style={{ gridColumn: '1 / -1' }}>
                 <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: 220 }}>
-                    <p className="eyebrow">Barang</p>
-                    <h3 style={{ margin: '0 0 8px', fontSize: '1.2rem' }}>{detailClient.namaBarang}</h3>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)' }}>{detailClient.jenisBarang}</p>
-                  </div>
                 </div>
               </div>
               <div className="summary-item">

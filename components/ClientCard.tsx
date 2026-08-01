@@ -37,7 +37,6 @@ export default function ClientCard({
       <div className="client-header">
         <div>
           <h3>{client.namaKlien}</h3>
-          <p className="barang-name">{client.namaBarang}</p>
         </div>
       </div>
 
