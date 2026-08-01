@@ -1261,6 +1261,14 @@ button.small {
   color: var(--text-muted);
 }
 
+.text-success {
+  color: var(--success);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
 .text-secondary {
   color: var(--text-secondary);
 }

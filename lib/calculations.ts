@@ -34,16 +34,52 @@ export function calculateRemainingPiutang(client: ClientData): number {
   }, {});
 
   return (client.cicilan ?? []).reduce((sum, installment) => {
-    if (installment.sudahBayar) {
+    const paidFromLogs = paymentByMonth[installment.bulanKe] ?? 0;
+    const paidFromSchedule = installment.dibayar ?? 0;
+    const paidAmount = Math.max(paidFromSchedule, paidFromLogs);
+    const remaining = Math.max(0, installment.jumlah - paidAmount);
+
+    if (installment.sudahBayar || paidAmount >= installment.jumlah) {
       return sum;
     }
 
-    const paidFromLogs = paymentByMonth[installment.bulanKe] ?? 0;
-    const paidAmount = Math.max(installment.dibayar ?? 0, paidFromLogs);
-    const remaining = Math.max(0, installment.jumlah - paidAmount);
-
     return sum + remaining;
   }, 0);
+}
+
+export interface InstallmentCountdown {
+  isPaid: boolean;
+  daysLeft: number | null;
+  label: string;
+}
+
+export function getInstallmentCountdown(
+  client: ClientData,
+  installment: NonNullable<ClientData['cicilan']>[number],
+  referenceDate: Date = new Date()
+): InstallmentCountdown {
+  if (installment.sudahBayar || (installment.dibayar ?? 0) >= installment.jumlah) {
+    return { isPaid: true, daysLeft: null, label: 'Lunas' };
+  }
+
+  const baseDate = client.tanggalPembelian ? new Date(client.tanggalPembelian) : new Date();
+  const dueDate = new Date(baseDate);
+  dueDate.setMonth(dueDate.getMonth() + installment.bulanKe);
+
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return { isPaid: false, daysLeft: diffDays, label: `${Math.abs(diffDays)} hari terlambat` };
+  }
+
+  if (diffDays === 0) {
+    return { isPaid: false, daysLeft: 0, label: 'Jatuh tempo hari ini' };
+  }
+
+  return { isPaid: false, daysLeft: diffDays, label: `${diffDays} hari lagi` };
 }
 
 export interface PaymentReminder {

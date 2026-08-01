@@ -5,6 +5,7 @@ import {
   calculatePaymentReminders,
   calculateRemainingPiutang,
   generateCicilanSchedule,
+  getInstallmentCountdown,
   rebuildCicilanSchedule,
 } from './calculations';
 import type { ClientData } from '../types/client';
@@ -192,6 +193,47 @@ describe('calculateRemainingPiutang', () => {
     };
 
     expect(calculateRemainingPiutang(client)).toBe(160000);
+  });
+});
+
+describe('getInstallmentCountdown', () => {
+  it('returns a paid state when installment is already marked as paid', () => {
+    const client: ClientData = {
+      namaKlien: 'Rina',
+      namaBarang: 'Laptop',
+      jenisBarang: 'Elektronik',
+      hargaBarang: 3000000,
+      hargaAsli: 2500000,
+      tanggalPembelian: '2026-01-01',
+      bunga: 2,
+      tenorBulan: 6,
+      dp: 500000,
+    };
+
+    const countdown = getInstallmentCountdown(client, { bulanKe: 1, jumlah: 100000, sudahBayar: true, dibayar: 100000 });
+
+    expect(countdown.isPaid).toBe(true);
+    expect(countdown.label).toBe('Lunas');
+  });
+
+  it('returns a countdown for unpaid installments based on the purchase date', () => {
+    const client: ClientData = {
+      namaKlien: 'Rina',
+      namaBarang: 'Laptop',
+      jenisBarang: 'Elektronik',
+      hargaBarang: 3000000,
+      hargaAsli: 2500000,
+      tanggalPembelian: '2026-01-01',
+      bunga: 2,
+      tenorBulan: 6,
+      dp: 500000,
+    };
+
+    const countdown = getInstallmentCountdown(client, { bulanKe: 2, jumlah: 100000, sudahBayar: false }, new Date('2026-03-01'));
+
+    expect(countdown.isPaid).toBe(false);
+    expect(countdown.daysLeft).toBe(0);
+    expect(countdown.label).toBe('Jatuh tempo hari ini');
   });
 });
 

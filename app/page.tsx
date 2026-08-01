@@ -9,6 +9,7 @@ import {
   calculatePaymentReminders,
   calculateRemainingPiutang,
   formatCurrency,
+  getInstallmentCountdown,
 } from '@/lib/calculations';
 
 export default function HomePage() {
@@ -654,7 +655,9 @@ export default function HomePage() {
                           {userRole === 'admin' && (
                             <td data-label="ID Klien">{client.clientId ?? '-'}</td>
                           )}
-                          <td data-label="Barang">{client.namaBarang}</td>
+                          <td data-label="Barang">
+                            <span>{client.namaBarang}</span>
+                          </td>
                           <td data-label="Jenis Barang">{client.jenisBarang ?? '-'}</td>
                           <td data-label="Harga">{formatCurrency(client.hargaBarang)}</td>
                           <td data-label="DP">{formatCurrency(client.dp)}</td>
@@ -721,6 +724,7 @@ export default function HomePage() {
                                   const cikNominal = cic.dibayar && cic.dibayar > cic.jumlah ? cic.dibayar : cic.jumlah;
                                   const paidAmount = cic.dibayar ?? 0;
                                   const remainingAmount = Math.max(0, cikNominal - paidAmount);
+                                  const countdown = getInstallmentCountdown(client, cic);
 
                                   return (
                                     <div key={cic.bulanKe} className="cicilan-item">
@@ -730,12 +734,17 @@ export default function HomePage() {
                                           checked={cic.sudahBayar}
                                           readOnly
                                         />
-                                        <span>
-                                          Bulan {cic.bulanKe}: {formatCurrency(cikNominal)}
-                                          {paidAmount > 0 && !cic.sudahBayar && (
-                                            <span className="text-muted"> · sisa {formatCurrency(remainingAmount)}</span>
-                                          )}
-                                        </span>
+                                        <div style={{ display: 'grid', gap: '4px' }}>
+                                          <span>
+                                            Bulan {cic.bulanKe}: {formatCurrency(cikNominal)}
+                                            {paidAmount > 0 && !cic.sudahBayar && (
+                                              <span className="text-muted"> · sisa {formatCurrency(remainingAmount)}</span>
+                                            )}
+                                          </span>
+                                          <small className={countdown.isPaid ? 'text-success' : 'text-muted'}>
+                                            {countdown.label}
+                                          </small>
+                                        </div>
                                       </div>
                                       {userRole === 'admin' && (
                                         <button
@@ -815,14 +824,18 @@ export default function HomePage() {
               </button>
             </div>
             <div className="summary-grid">
+              <div className="summary-item" style={{ gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: 220 }}>
+                    <p className="eyebrow">Barang</p>
+                    <h3 style={{ margin: '0 0 8px', fontSize: '1.2rem' }}>{detailClient.namaBarang}</h3>
+                    <p style={{ margin: 0, color: 'var(--text-secondary)' }}>{detailClient.jenisBarang}</p>
+                  </div>
+                </div>
+              </div>
               <div className="summary-item">
                 <span>Sisa Pembayaran</span>
-                <strong>{formatCurrency(
-                  (detailClient.cicilan ?? []).reduce(
-                    (sum, cic) => sum + Math.max(0, cic.jumlah - (cic.dibayar ?? 0)),
-                    0
-                  )
-                )}</strong>
+                <strong>{formatCurrency(calculateRemainingPiutang(detailClient))}</strong>
               </div>
               <div className="summary-item">
                 <span>Nama Barang</span>
