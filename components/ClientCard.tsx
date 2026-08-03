@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { ClientData } from '@/types/client';
-import { calculateClientValues, formatCurrency } from '@/lib/calculations';
+import { calculateClientValues, formatCurrency, getInstallmentCountdown } from '@/lib/calculations';
 
 interface ClientCardProps {
   client: ClientData;
@@ -31,12 +31,17 @@ export default function ClientCard({
   };
 
   const totalCicilanBayar = client.cicilan?.filter((c) => c.sudahBayar).length ?? 0;
+  const nextUnpaidInstallment = client.cicilan?.find((c) => !c.sudahBayar);
+  const nextInstallmentCountdown = nextUnpaidInstallment
+    ? getInstallmentCountdown(client, nextUnpaidInstallment).label
+    : 'Lunas';
 
   return (
     <article className="client-card">
       <div className="client-header">
         <div>
           <h3>{client.namaKlien}</h3>
+          <p className="barang-name">{client.namaBarang}</p>
         </div>
       </div>
 
@@ -78,6 +83,10 @@ export default function ClientCard({
         <div>
           <p className="label">Total Keuntungan</p>
           <p className="value profit">{formatCurrency(computed.totalKeuntungan)}</p>
+        </div>
+        <div>
+          <p className="label">Countdown Angsuran</p>
+          <p className="value countdown-value">{nextInstallmentCountdown}</p>
         </div>
       </div>
 

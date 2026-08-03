@@ -673,6 +673,7 @@ export default function HomePage() {
                     <th>Tenor</th>
                     <th>Cicilan/Bulan</th>
                     <th>Status</th>
+                    <th>Countdown</th>
                     <th>Aksi</th>
                   </tr>
                 </thead>
@@ -700,6 +701,11 @@ export default function HomePage() {
                           <td data-label="Tenor">{client.tenorBulan} bulan</td>
                           <td data-label="Cicilan/Bulan">{formatCurrency(computed.cicilanPerbulan)}</td>
                           <td data-label="Status">{paidCount}/{client.tenorBulan} dibayar</td>
+                          <td data-label="Countdown">
+                            {client.cicilan?.find((c) => !c.sudahBayar)
+                              ? getInstallmentCountdown(client, client.cicilan.find((c) => !c.sudahBayar)!).label
+                              : 'Lunas'}
+                          </td>
                           <td className="actions-cell" data-label="Aksi">
                             {userRole === 'admin' ? (
                               <>
@@ -866,6 +872,14 @@ export default function HomePage() {
               <div className="summary-item">
                 <span>Sisa Pembayaran</span>
                 <strong>{formatCurrency(calculateRemainingPiutang(detailClient))}</strong>
+              </div>
+              <div className="summary-item">
+                <span>Countdown Angsuran</span>
+                <strong>
+                  {detailClient.cicilan?.find((c) => !c.sudahBayar)
+                    ? getInstallmentCountdown(detailClient, detailClient.cicilan.find((c) => !c.sudahBayar)!).label
+                    : 'Lunas'}
+                </strong>
               </div>
               <div className="summary-item">
                 <span>Nama Barang</span>
