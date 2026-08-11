@@ -512,6 +512,22 @@ a:hover {
   vertical-align: middle;
 }
 
+/* Countdown value styling for client cards and table */
+.countdown-value {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.06);
+  color: var(--primary-light);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.countdown-value.late {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--error);
+}
+
 .client-table th:first-child,
 .client-table td:first-child {
   padding-left: 24px;

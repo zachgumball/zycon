@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { ClientData } from '@/types/client';
-import { calculateClientValues, formatCurrency, getInstallmentCountdown } from '@/lib/calculations';
+import { calculateClientValues, formatCurrency, getInstallmentCountdown, calculateRemainingPiutang } from '@/lib/calculations';
 
 interface ClientCardProps {
   client: ClientData;
@@ -32,9 +32,22 @@ export default function ClientCard({
 
   const totalCicilanBayar = client.cicilan?.filter((c) => c.sudahBayar).length ?? 0;
   const nextUnpaidInstallment = client.cicilan?.find((c) => !c.sudahBayar);
-  const nextInstallmentCountdown = nextUnpaidInstallment
-    ? getInstallmentCountdown(client, nextUnpaidInstallment).label
-    : 'Lunas';
+  const nextInstallmentCountdownData = nextUnpaidInstallment
+    ? getInstallmentCountdown(client, nextUnpaidInstallment)
+    : { isPaid: true, daysLeft: null, label: 'Lunas' };
+  const nextInstallmentCountdown = nextInstallmentCountdownData.label;
+
+  const isFullyPaid = (client.cicilan?.every((c) => c.sudahBayar) ?? false) || calculateRemainingPiutang(client) === 0;
+  let fullyPaidDate: string | null = null;
+  if (isFullyPaid && client.paymentLogs && client.paymentLogs.length > 0) {
+    const latest = client.paymentLogs
+      .map((l) => new Date(l.tanggalBayar))
+      .filter((d) => !Number.isNaN(d.getTime()))
+      .sort((a, b) => b.getTime() - a.getTime())[0];
+    if (latest) {
+      fullyPaidDate = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(latest);
+    }
+  }
 
   return (
     <article className="client-card">
@@ -86,7 +99,9 @@ export default function ClientCard({
         </div>
         <div>
           <p className="label">Countdown Angsuran</p>
-          <p className="value countdown-value">{nextInstallmentCountdown}</p>
+          <p className={"value countdown-value" + (nextInstallmentCountdownData.daysLeft !== null && nextInstallmentCountdownData.daysLeft < 0 ? ' late' : '')}>
+            {isFullyPaid ? (fullyPaidDate ? `Lunas sejak ${fullyPaidDate}` : 'Lunas') : nextInstallmentCountdown}
+          </p>
         </div>
       </div>
 
