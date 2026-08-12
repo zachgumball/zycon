@@ -1,7 +1,6 @@
 'use client';
 
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { Analytics } from "@vercel/analytics/next"
 import ClientForm from '@/components/ClientForm';
 import type { ClientData } from '@/types/client';
 import {
