@@ -264,8 +264,42 @@ describe('calculatePaymentReminders', () => {
     const reminders = calculatePaymentReminders(clients, referenceDate);
 
     expect(reminders).toHaveLength(1);
-    expect(reminders[0].daysLeft).toBe(7);
+    expect(reminders[0].daysLeft).toBe(6);
     expect(reminders[0].status).toBe('upcoming');
+  });
+
+  it('uses the actual installment schedule date instead of the latest payment log when computing reminders', () => {
+    const referenceDate = new Date('2026-03-05T00:00:00.000Z');
+    const clients: ClientData[] = [
+      {
+        namaKlien: 'Dina',
+        namaBarang: 'Smartphone',
+        jenisBarang: 'Elektronik',
+        hargaBarang: 2500000,
+        hargaAsli: 2000000,
+        tanggalPembelian: '2026-01-01',
+        bunga: 3,
+        tenorBulan: 4,
+        dp: 500000,
+        cicilan: [
+          { bulanKe: 1, jumlah: 120000, sudahBayar: true, dibayar: 120000 },
+          { bulanKe: 2, jumlah: 120000, sudahBayar: false, dibayar: 0 },
+          { bulanKe: 3, jumlah: 120000, sudahBayar: false, dibayar: 0 },
+          { bulanKe: 4, jumlah: 120000, sudahBayar: false, dibayar: 0 },
+        ],
+        paymentLogs: [
+          { bulanKe: 1, jumlah: 120000, tanggalBayar: '2026-03-10T00:00:00.000Z' },
+        ],
+      },
+    ];
+
+    const reminders = calculatePaymentReminders(clients, referenceDate);
+
+    expect(reminders).toHaveLength(1);
+    expect(reminders[0].month).toBe(2);
+    expect(reminders[0].daysLeft).toBe(-4);
+    expect(reminders[0].status).toBe('overdue');
+    expect(reminders[0].dueDate).toBe(new Date('2026-03-01T00:00:00.000Z').toISOString());
   });
 });
 

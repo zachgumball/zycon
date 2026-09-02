@@ -545,6 +545,17 @@ a:hover {
   align-items: stretch;
 }
 
+.desktop-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.mobile-actions {
+  display: none;
+}
+
 .actions-cell .action-button {
   flex: 1 1 110px;
   min-width: 110px;
@@ -568,53 +579,91 @@ a:hover {
 }
 
 @media (max-width: 768px) {
+  .table-wrapper {
+    border-radius: var(--radius-lg);
+  }
+
   .client-table {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     min-width: 100%;
   }
 
   .client-table th,
   .client-table td {
-    padding: 12px 10px;
+    padding: 10px 8px;
   }
 
   .client-table th:first-child,
   .client-table td:first-child {
-    padding-left: 14px;
+    padding-left: 10px;
   }
 
   .client-table th:last-child,
   .client-table td:last-child {
-    padding-right: 14px;
+    padding-right: 10px;
   }
 
   .client-table th {
-    font-size: 0.7rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
   }
 
   .client-table td {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
   }
 
-  .actions-cell {
-    flex-direction: column;
-    gap: 6px;
+  .desktop-actions {
+    display: none;
   }
 
-  .actions-cell button {
+  .mobile-actions {
+    display: flex;
     width: 100%;
+  }
+
+  .mobile-action-button {
+    width: 100%;
+    min-width: 0;
     padding: 8px 12px;
     font-size: 0.75rem;
   }
 
-  .actions-cell .action-button {
-    min-width: 0;
-    flex: 1 1 auto;
+  .actions-cell {
+    display: block;
+    min-width: 100px;
   }
 
   .client-table th:nth-child(5),
-  .client-table td:nth-child(5) {
+  .client-table td:nth-child(5),
+  .client-table th:nth-child(6),
+  .client-table td:nth-child(6),
+  .client-table th:nth-child(8),
+  .client-table td:nth-child(8),
+  .client-table th:nth-child(9),
+  .client-table td:nth-child(9),
+  .client-table th:nth-child(10),
+  .client-table td:nth-child(10),
+  .client-table th:nth-child(11),
+  .client-table td:nth-child(11),
+  .client-table th:nth-child(12),
+  .client-table td:nth-child(12) {
     display: none;
+  }
+
+  .client-table th:nth-child(1),
+  .client-table td:nth-child(1),
+  .client-table th:nth-child(2),
+  .client-table td:nth-child(2),
+  .client-table th:nth-child(3),
+  .client-table td:nth-child(3),
+  .client-table th:nth-child(4),
+  .client-table td:nth-child(4),
+  .client-table th:nth-child(7),
+  .client-table td:nth-child(7),
+  .client-table th:nth-child(13),
+  .client-table td:nth-child(13) {
+    padding-left: 8px;
+    padding-right: 8px;
   }
 }
 
@@ -1299,6 +1348,16 @@ button.small {
 
 .hidden-mobile {
   display: block;
+}
+
+.mobile-action-menu {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.mobile-action-menu button {
+  width: 100%;
 }
 
 @media (max-width: 768px) {

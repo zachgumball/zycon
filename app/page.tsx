@@ -12,6 +12,14 @@ import {
   getInstallmentCountdown,
 } from '@/lib/calculations';
 
+function getNextUnpaidInstallment(client: ClientData) {
+  return client.cicilan?.find((item) => !item.sudahBayar && (item.dibayar ?? 0) < item.jumlah) ?? null;
+}
+
+function getPaidInstallmentCount(client: ClientData) {
+  return client.cicilan?.filter((item) => item.sudahBayar).length ?? 0;
+}
+
 export default function HomePage() {
   const [clients, setClients] = useState<ClientData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -37,6 +45,7 @@ export default function HomePage() {
     bulanKe: number;
     expected: number;
   } | null>(null);
+  const [mobileActionClient, setMobileActionClient] = useState<ClientData | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
@@ -384,20 +393,35 @@ export default function HomePage() {
     setShowLogoutModal(false);
   }
 
-  const summaryClients = clients;
-  const totalInstallments = summaryClients.reduce((sum, client) => sum + (client.cicilan?.length ?? 0), 0);
-  const totalPiutang = summaryClients.reduce(
-    (sum, client) => sum + (client.cicilan?.reduce((installmentSum, c) => installmentSum + c.jumlah, 0) ?? 0),
-    0
-  );
-  const sisaPiutang = summaryClients.reduce((sum, client) => sum + calculateRemainingPiutang(client), 0);
-  const totalUnpaidInstallments = summaryClients.reduce(
-    (sum, client) => sum + (client.cicilan?.filter((c) => !c.sudahBayar).length ?? 0),
-    0
-  );
-  const totalKeuntungan = summaryClients.reduce((sum, client) => sum + calculateClientValues(client).totalKeuntungan, 0);
-  const averageTenor = summaryClients.length ? Math.round(summaryClients.reduce((sum, client) => sum + client.tenorBulan, 0) / summaryClients.length) : 0;
-  const paymentReminders = useMemo(() => calculatePaymentReminders(summaryClients), [summaryClients]);
+  const summaryMetrics = useMemo(() => {
+    const totalInstallments = clients.reduce((sum, client) => sum + (client.cicilan?.length ?? 0), 0);
+    const totalPiutang = clients.reduce(
+      (sum, client) => sum + (client.cicilan?.reduce((installmentSum, c) => installmentSum + c.jumlah, 0) ?? 0),
+      0
+    );
+    const sisaPiutang = clients.reduce((sum, client) => sum + calculateRemainingPiutang(client), 0);
+    const totalUnpaidInstallments = clients.reduce(
+      (sum, client) => sum + (client.cicilan?.filter((c) => !c.sudahBayar).length ?? 0),
+      0
+    );
+    const totalKeuntungan = clients.reduce((sum, client) => sum + calculateClientValues(client).totalKeuntungan, 0);
+    const paidInstallments = clients.reduce((sum, client) => sum + getPaidInstallmentCount(client), 0);
+    const averageTenor = clients.length
+      ? Math.round(clients.reduce((sum, client) => sum + client.tenorBulan, 0) / clients.length)
+      : 0;
+
+    return {
+      totalInstallments,
+      totalPiutang,
+      sisaPiutang,
+      totalUnpaidInstallments,
+      totalKeuntungan,
+      paidInstallments,
+      averageTenor,
+    };
+  }, [clients]);
+
+  const paymentReminders = useMemo(() => calculatePaymentReminders(clients), [clients]);
 
   if (showLoginModal) {
     return (
@@ -539,42 +563,42 @@ export default function HomePage() {
           <div className="summary-grid">
             <div className="summary-item">
               <span>Klien Aktif</span>
-              <strong>{summaryClients.length}</strong>
+              <strong>{clients.length}</strong>
             </div>
             <div className="summary-item">
               <span>Total DP</span>
-              <strong>{formatCurrency(summaryClients.reduce((sum, client) => sum + client.dp, 0))}</strong>
+              <strong>{formatCurrency(clients.reduce((sum, client) => sum + client.dp, 0))}</strong>
             </div>
             <div className="summary-item">
               <span>Total Biaya Pembelian</span>
-              <strong>{formatCurrency(summaryClients.reduce((sum, client) => sum + client.hargaAsli, 0))}</strong>
+              <strong>{formatCurrency(clients.reduce((sum, client) => sum + client.hargaAsli, 0))}</strong>
             </div>
             <div className="summary-item">
               <span>Total Piutang</span>
-              <strong>{formatCurrency(totalPiutang)}</strong>
+              <strong>{formatCurrency(summaryMetrics.totalPiutang)}</strong>
             </div>
             <div className="summary-item">
               <span>Sisa Piutang</span>
-              <strong>{formatCurrency(sisaPiutang)}</strong>
+              <strong>{formatCurrency(summaryMetrics.sisaPiutang)}</strong>
             </div>
             <div className="summary-item">
               <span>Cicilan Dibayar</span>
-              <strong>{summaryClients.reduce((sum, client) => sum + (client.cicilan?.filter((c) => c.sudahBayar).length ?? 0), 0)}/{totalInstallments}</strong>
+              <strong>{summaryMetrics.paidInstallments}/{summaryMetrics.totalInstallments}</strong>
             </div>
             <div className="summary-item">
               <span>Cicilan Tersisa</span>
-              <strong>{totalUnpaidInstallments}</strong>
+              <strong>{summaryMetrics.totalUnpaidInstallments}</strong>
             </div>
             {userRole === 'admin' && (
               <div className="summary-item">
                 <span>Total Keuntungan</span>
-                <strong>{formatCurrency(totalKeuntungan)}</strong>
+                <strong>{formatCurrency(summaryMetrics.totalKeuntungan)}</strong>
               </div>
             )}
             {userRole === 'admin' && (
               <div className="summary-item">
                 <span>Rata-rata Tenor</span>
-                <strong>{averageTenor} bln</strong>
+                <strong>{summaryMetrics.averageTenor} bln</strong>
               </div>
             )}
           </div>
@@ -680,7 +704,8 @@ export default function HomePage() {
                 <tbody>
                   {filteredClients.map((client, index) => {
                     const computed = calculateClientValues(client);
-                    const paidCount = client.cicilan?.filter((c) => c.sudahBayar).length ?? 0;
+                    const paidCount = getPaidInstallmentCount(client);
+                    const nextUnpaidInstallment = getNextUnpaidInstallment(client);
                     const isExpanded = expandedCicilanId === client._id;
 
                     return (
@@ -702,49 +727,60 @@ export default function HomePage() {
                           <td data-label="Cicilan/Bulan">{formatCurrency(computed.cicilanPerbulan)}</td>
                           <td data-label="Status">{paidCount}/{client.tenorBulan} dibayar</td>
                           <td data-label="Countdown">
-                            {client.cicilan?.find((c) => !c.sudahBayar)
-                              ? getInstallmentCountdown(client, client.cicilan.find((c) => !c.sudahBayar)!).label
+                            {nextUnpaidInstallment
+                              ? getInstallmentCountdown(client, nextUnpaidInstallment).label
                               : 'Lunas'}
                           </td>
                           <td className="actions-cell" data-label="Aksi">
                             {userRole === 'admin' ? (
                               <>
-                                <button
-                                  type="button"
-                                  className="secondary action-button"
-                                  onClick={() => setDetailClient(client)}
-                                >
-                                  Detail
-                                </button>
-                                <button
-                                  type="button"
-                                  className="secondary action-button"
-                                  onClick={() => setEditingClient(client)}
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  className="secondary action-button"
-                                  disabled={deletingId === client._id}
-                                  onClick={() => client._id && handleDelete(client._id)}
-                                >
-                                  {deletingId === client._id ? (
-                                    <>
-                                      <span className="button-spinner" />
-                                      Menghapus...
-                                    </>
-                                  ) : (
-                                    'Hapus'
-                                  )}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="secondary action-button"
-                                  onClick={() => client._id && handleToggleCicilanRow(client._id)}
-                                >
-                                  {isExpanded ? 'Tutup Cicilan' : 'Lihat Cicilan'}
-                                </button>
+                                <div className="desktop-actions">
+                                  <button
+                                    type="button"
+                                    className="secondary action-button"
+                                    onClick={() => setDetailClient(client)}
+                                  >
+                                    Detail
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="secondary action-button"
+                                    onClick={() => setEditingClient(client)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="secondary action-button"
+                                    disabled={deletingId === client._id}
+                                    onClick={() => client._id && handleDelete(client._id)}
+                                  >
+                                    {deletingId === client._id ? (
+                                      <>
+                                        <span className="button-spinner" />
+                                        Menghapus...
+                                      </>
+                                    ) : (
+                                      'Hapus'
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="secondary action-button"
+                                    onClick={() => client._id && handleToggleCicilanRow(client._id)}
+                                  >
+                                    {isExpanded ? 'Tutup Cicilan' : 'Lihat Cicilan'}
+                                  </button>
+                                </div>
+                                <div className="mobile-actions">
+                                  <button
+                                    type="button"
+                                    className="secondary action-button mobile-action-button"
+                                    onClick={() => setMobileActionClient(client)}
+                                  >
+                                    Aksi
+                                  </button>
+                                </div>
                               </>
                             ) : (
                               <button
@@ -876,8 +912,8 @@ export default function HomePage() {
               <div className="summary-item">
                 <span>Countdown Angsuran</span>
                 <strong>
-                  {detailClient.cicilan?.find((c) => !c.sudahBayar)
-                    ? getInstallmentCountdown(detailClient, detailClient.cicilan.find((c) => !c.sudahBayar)!).label
+                  {getNextUnpaidInstallment(detailClient)
+                    ? getInstallmentCountdown(detailClient, getNextUnpaidInstallment(detailClient)!).label
                     : 'Lunas'}
                 </strong>
               </div>
@@ -997,6 +1033,74 @@ export default function HomePage() {
               ) : (
                 <p className="empty-state">Belum ada catatan pembayaran.</p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mobileActionClient && (
+        <div className="modal-overlay" onClick={() => setMobileActionClient(null)}>
+          <div className="edit-modal desktop-animated" onClick={(event) => event.stopPropagation()} style={{ maxWidth: '360px' }}>
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Aksi</p>
+                <h2>{mobileActionClient.namaKlien}</h2>
+              </div>
+              <button
+                type="button"
+                className="close-button"
+                onClick={() => setMobileActionClient(null)}
+                aria-label="Tutup menu aksi"
+              >
+                Close
+              </button>
+            </div>
+            <div className="mobile-action-menu">
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setDetailClient(mobileActionClient);
+                  setMobileActionClient(null);
+                }}
+              >
+                Detail
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setEditingClient(mobileActionClient);
+                  setMobileActionClient(null);
+                }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  if (mobileActionClient._id) {
+                    setMobileActionClient(null);
+                    handleDelete(mobileActionClient._id);
+                  }
+                }}
+                disabled={deletingId === mobileActionClient._id}
+              >
+                {deletingId === mobileActionClient._id ? 'Menghapus...' : 'Hapus'}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  if (mobileActionClient._id) {
+                    setExpandedCicilanId((current) => (current === mobileActionClient._id ? null : mobileActionClient._id ?? null));
+                    setMobileActionClient(null);
+                  }
+                }}
+              >
+                {expandedCicilanId === mobileActionClient._id ? 'Tutup Cicilan' : 'Lihat Cicilan'}
+              </button>
             </div>
           </div>
         </div>

@@ -102,28 +102,22 @@ export function calculatePaymentReminders(
   return clients
     .flatMap((client) => {
       const installments = client.cicilan ?? [];
-      const unpaidInstallments = installments.filter((item) => !item.sudahBayar);
+      const unpaidInstallments = installments
+        .filter((item) => !item.sudahBayar && (item.dibayar ?? 0) < item.jumlah)
+        .sort((a, b) => a.bulanKe - b.bulanKe);
 
       if (unpaidInstallments.length === 0) {
         return [];
       }
 
-      const latestPaymentDate = (client.paymentLogs ?? [])
-        .map((log) => new Date(log.tanggalBayar))
-        .filter((value) => !Number.isNaN(value.getTime()))
-        .sort((a, b) => b.getTime() - a.getTime())[0];
-
-      const fallbackDate = client.tanggalPembelian
-        ? new Date(client.tanggalPembelian)
-        : new Date();
-
-      const baseDate = latestPaymentDate ?? fallbackDate;
+      const nextInstallment = unpaidInstallments[0];
+      const baseDate = client.tanggalPembelian ? new Date(client.tanggalPembelian) : new Date();
       const dueDate = new Date(baseDate);
-      dueDate.setDate(dueDate.getDate() + 30);
+      dueDate.setMonth(dueDate.getMonth() + nextInstallment.bulanKe);
 
       const diffDays = Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-      if (diffDays < 0 || diffDays > 7) {
+      if (diffDays < -7 || diffDays > 7) {
         return [];
       }
 
@@ -133,8 +127,8 @@ export function calculatePaymentReminders(
         {
           clientId: client._id,
           clientName: client.namaKlien,
-          month: unpaidInstallments[0].bulanKe,
-          amount: unpaidInstallments[0].jumlah,
+          month: nextInstallment.bulanKe,
+          amount: nextInstallment.jumlah,
           dueDate: dueDate.toISOString(),
           daysLeft: diffDays,
           status,

@@ -6,7 +6,14 @@ declare global {
 }
 
 const uri = process.env.MONGODB_URI;
-const options = {};
+const options = {
+  serverSelectionTimeoutMS: 15000,
+  connectTimeoutMS: 15000,
+  socketTimeoutMS: 15000,
+  maxPoolSize: 10,
+  minPoolSize: 1,
+  family: 4,
+};
 
 if (!uri) {
   throw new Error('Please add your MongoDB URI to the MONGODB_URI environment variable in .env.local');
