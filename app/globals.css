@@ -1608,6 +1608,30 @@ body {
   }
 }
 
+/* Keep action interactions quick on data-heavy screens. */
+.desktop-animated {
+  animation: modalRise 180ms ease-out;
+}
+
+.modal-overlay {
+  backdrop-filter: blur(2px);
+}
+
+button {
+  transition: background-color var(--transition), border-color var(--transition), color var(--transition), transform var(--transition);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Mobile-first visual system */
 :root {
   color-scheme: dark;
