@@ -47,7 +47,7 @@ export default function ClientForm({ initialData, onSave, onCancel, isSaving = f
       !form.hargaAsli ||
       !form.tanggalPembelian ||
       form.bunga < 0 ||
-      (form.tenorBulan !== 3 && form.tenorBulan !== 6) ||
+      ![3, 6, 9, 12].includes(form.tenorBulan) ||
       form.dp < 0,
     [form]
   );
@@ -78,7 +78,7 @@ export default function ClientForm({ initialData, onSave, onCancel, isSaving = f
     if (form.dp < 0) newErrors.dp = 'DP tidak boleh negatif.';
     if (form.dp > form.hargaBarang) newErrors.dp = 'DP tidak boleh lebih besar dari harga barang.';
     if (form.bunga < 0) newErrors.bunga = 'Bunga tidak boleh negatif.';
-    if (form.tenorBulan !== 3 && form.tenorBulan !== 6) newErrors.tenorBulan = 'Pilih tenor 3 atau 6 bulan.';
+    if (![3, 6, 9, 12].includes(form.tenorBulan)) newErrors.tenorBulan = 'Pilih tenor 3, 6, 9, atau 12 bulan.';
 
     setErrors(newErrors);
     return newErrors;
@@ -224,7 +224,7 @@ export default function ClientForm({ initialData, onSave, onCancel, isSaving = f
             <div className="field">
               <label>Tenor (bulan)</label>
               <div className="radio-group">
-                {[3, 6].map((value) => (
+                {[3, 6, 9, 12].map((value) => (
                   <label key={value} className="radio-option" htmlFor={`tenor-${value}`}>
                     <input
                       id={`tenor-${value}`}

@@ -24,22 +24,26 @@ export default function HomePage() {
   const [clients, setClients] = useState<ClientData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingCicilan, setIsUpdatingCicilan] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [newFormKey, setNewFormKey] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [userRole, setUserRole] = useState<'admin' | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [showLoginModal, setShowLoginModal] = useState(true);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [adminPassword, setAdminPassword] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('unpaid');
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [editingClient, setEditingClient] = useState<ClientData | null>(null);
   const [detailClient, setDetailClient] = useState<ClientData | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ClientData | null>(null);
   const [expandedCicilanId, setExpandedCicilanId] = useState<string | null>(null);
+  const [installmentClient, setInstallmentClient] = useState<ClientData | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<{
     client: ClientData;
     bulanKe: number;
@@ -132,7 +136,8 @@ export default function HomePage() {
     cicilan: ClientData['cicilan'],
     paymentLogs?: ClientData['paymentLogs'],
     successText = 'Status cicilan berhasil diperbarui.'
-  ) {
+  ): Promise<boolean> {
+    setIsUpdatingCicilan(true);
     try {
       setError(null);
       const body: Record<string, unknown> = { cicilan };
@@ -147,10 +152,18 @@ export default function HomePage() {
       });
 
       if (!response.ok) throw new Error('Gagal memperbarui cicilan.');
-      await fetchClients();
+      const savedClient = (await response.json()) as ClientData;
+      setClients((current) => current.map((client) => client._id === id ? savedClient : client));
+      setDetailClient((current) => current?._id === id ? savedClient : current);
+      setInstallmentClient((current) => current?._id === id ? savedClient : current);
+      setMobileActionClient((current) => current?._id === id ? savedClient : current);
       setSuccessMessage(successText);
+      return true;
     } catch (err) {
       setError((err as Error).message);
+      return false;
+    } finally {
+      setIsUpdatingCicilan(false);
     }
   }
 
@@ -241,7 +254,8 @@ export default function HomePage() {
       },
     ];
 
-    await handleUpdateCicilan(paymentTarget.client._id, updated, paymentLogs);
+    const saved = await handleUpdateCicilan(paymentTarget.client._id, updated, paymentLogs);
+    if (!saved) return;
     setPaymentTarget(null);
     setPaymentAmount('');
     setPaymentError(null);
@@ -319,14 +333,21 @@ export default function HomePage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Hapus klien ini?')) return;
+    const client = clients.find((item) => item._id === id);
+    if (!client) return;
+    setDeleteTarget(client);
+  }
 
-    setDeletingId(id);
+  async function confirmDelete() {
+    if (!deleteTarget?._id) return;
+
+    setDeletingId(deleteTarget._id);
     try {
       setError(null);
-      const response = await fetch(`/api/clients/${id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/clients/${deleteTarget._id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error('Gagal menghapus data klien.');
       await fetchClients();
+      setDeleteTarget(null);
       setSuccessMessage('Data klien berhasil dihapus.');
     } catch (err) {
       setError((err as Error).message);
@@ -352,7 +373,7 @@ export default function HomePage() {
           .toLowerCase()
           .includes(normalizedSearch);
 
-      const isPaid = (client.cicilan?.length ?? 0) > 0 && client.cicilan?.every((c) => c.sudahBayar);
+        const isPaid = (client.cicilan?.length ?? 0) > 0 && calculateRemainingPiutang(client) === 0;
       const statusMatches =
         statusFilter === 'all' ||
         (statusFilter === 'paid' && isPaid) ||
@@ -386,7 +407,7 @@ export default function HomePage() {
     window.localStorage.removeItem('zynext-admin-session');
     setAdminPassword('');
     setSearchTerm('');
-    setStatusFilter('all');
+    setStatusFilter('unpaid');
   }
 
   function cancelLogout() {
@@ -500,8 +521,18 @@ export default function HomePage() {
               <img src="/logoCounter.png" alt="Logo Zynext Counter" style={{ width: 100, height: 100, objectFit: 'contain' }} />
             </div>
             <div className="brand-text" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <h1 style={{ margin: 0, lineHeight: 1.2 }}>Zynext Counter</h1>
-              <p style={{ margin: 0, lineHeight: 1.4 }}>Kelola data klien dan cicilan dengan mudah</p>
+              <div className="brand-title-row">
+                <h1 style={{ margin: 0, lineHeight: 1.2 }}>Zynext Counter</h1>
+                <button
+                  type="button"
+                  className="secondary menu-toggle"
+                  onClick={() => setShowMobileMenu((current) => !current)}
+                  aria-expanded={showMobileMenu}
+                  aria-label="Buka menu pengaturan"
+                >
+                  ☰
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -515,22 +546,24 @@ export default function HomePage() {
               + Tambah Data
             </button>
           )}
-          <button
-            type="button"
-            className="secondary"
-            onClick={toggleTheme}
-            title="Ubah tema"
-          >
-            {theme === 'dark' ? '☀️ Terang' : '🌙 Gelap'}
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            onClick={handleLogout}
-            title="Keluar dari aplikasi"
-          >
-            Logout
-          </button>
+          <div className={`header-menu-items${showMobileMenu ? ' is-open' : ''}`}>
+            <button
+              type="button"
+              className="secondary"
+              onClick={toggleTheme}
+              title="Ubah tema"
+            >
+              {theme === 'dark' ? '☀️ Terang' : '🌙 Gelap'}
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={handleLogout}
+              title="Keluar dari aplikasi"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
@@ -769,7 +802,7 @@ export default function HomePage() {
                                     className="secondary action-button"
                                     onClick={() => client._id && handleToggleCicilanRow(client._id)}
                                   >
-                                    {isExpanded ? 'Tutup Cicilan' : 'Lihat Cicilan'}
+                                    {isExpanded ? 'Cicilan' : 'Cicilan'}
                                   </button>
                                 </div>
                                 <div className="mobile-actions">
@@ -795,7 +828,7 @@ export default function HomePage() {
                         </tr>
                         {isExpanded && client.cicilan && (
                           <tr className="cicilan-detail-row">
-                            <td colSpan={userRole === 'admin' ? 10 : 9}>
+                            <td colSpan={13}>
                               <div className="cicilan-detail">
                                 {client.cicilan.map((cic) => {
                                   const cikNominal = cic.dibayar && cic.dibayar > cic.jumlah ? cic.dibayar : cic.jumlah;
@@ -855,8 +888,8 @@ export default function HomePage() {
       </section>
 
       {editingClient && (
-        <div className="modal-overlay" onClick={() => setEditingClient(null)}>
-          <div className="edit-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-overlay detail-overlay" onClick={() => setEditingClient(null)}>
+          <div className="edit-modal edit-client-modal" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <p className="eyebrow">Edit Klien</p>
@@ -884,8 +917,8 @@ export default function HomePage() {
       )}
 
       {detailClient && (
-        <div className="modal-overlay" onClick={() => setDetailClient(null)}>
-          <div className="edit-modal desktop-animated" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-overlay detail-overlay" onClick={() => setDetailClient(null)}>
+          <div className="edit-modal client-detail-modal desktop-animated" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div>
                 <p className="eyebrow">Detail Klien</p>
@@ -901,10 +934,6 @@ export default function HomePage() {
               </button>
             </div>
             <div className="summary-grid">
-              <div className="summary-item" style={{ gridColumn: '1 / -1' }}>
-                <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
-                </div>
-              </div>
               <div className="summary-item">
                 <span>Sisa Pembayaran</span>
                 <strong>{formatCurrency(calculateRemainingPiutang(detailClient))}</strong>
@@ -1039,12 +1068,12 @@ export default function HomePage() {
       )}
 
       {mobileActionClient && (
-        <div className="modal-overlay" onClick={() => setMobileActionClient(null)}>
+        <div className="modal-overlay mobile-action-overlay" onClick={() => setMobileActionClient(null)}>
           <div className="edit-modal desktop-animated" onClick={(event) => event.stopPropagation()} style={{ maxWidth: '360px' }}>
             <div className="modal-header">
               <div>
-                <p className="eyebrow">Aksi</p>
                 <h2>{mobileActionClient.namaKlien}</h2>
+                <p className="mobile-action-item">{mobileActionClient.namaBarang}</p>
               </div>
               <button
                 type="button"
@@ -1061,7 +1090,6 @@ export default function HomePage() {
                 className="secondary"
                 onClick={() => {
                   setDetailClient(mobileActionClient);
-                  setMobileActionClient(null);
                 }}
               >
                 Detail
@@ -1071,7 +1099,6 @@ export default function HomePage() {
                 className="secondary"
                 onClick={() => {
                   setEditingClient(mobileActionClient);
-                  setMobileActionClient(null);
                 }}
               >
                 Edit
@@ -1094,12 +1121,85 @@ export default function HomePage() {
                 className="secondary"
                 onClick={() => {
                   if (mobileActionClient._id) {
-                    setExpandedCicilanId((current) => (current === mobileActionClient._id ? null : mobileActionClient._id ?? null));
-                    setMobileActionClient(null);
+                    setInstallmentClient(mobileActionClient);
                   }
                 }}
               >
-                {expandedCicilanId === mobileActionClient._id ? 'Tutup Cicilan' : 'Lihat Cicilan'}
+                Cicilan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {installmentClient && (
+        <div className="modal-overlay detail-overlay" onClick={() => setInstallmentClient(null)}>
+          <div className="edit-modal installment-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Jadwal Cicilan</p>
+                <h2>{installmentClient.namaKlien}</h2>
+              </div>
+              <button
+                type="button"
+                className="close-button"
+                onClick={() => setInstallmentClient(null)}
+                aria-label="Tutup jadwal cicilan"
+              >
+                Close
+              </button>
+            </div>
+            <div className="cicilan-detail modal-cicilan-list">
+              {installmentClient.cicilan?.map((cic) => {
+                const installmentAmount = cic.dibayar && cic.dibayar > cic.jumlah ? cic.dibayar : cic.jumlah;
+                const paidAmount = cic.dibayar ?? 0;
+                const remainingAmount = Math.max(0, installmentAmount - paidAmount);
+                const countdown = getInstallmentCountdown(installmentClient, cic);
+
+                return (
+                  <div key={cic.bulanKe} className="cicilan-item">
+                    <div>
+                      <strong>Bulan {cic.bulanKe}: {formatCurrency(installmentAmount)}</strong>
+                      <small className={countdown.isPaid ? 'text-success' : 'text-muted'}>
+                        {cic.sudahBayar ? 'Lunas' : `${countdown.label} · sisa ${formatCurrency(remainingAmount)}`}
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary small"
+                      onClick={() =>
+                        cic.sudahBayar
+                          ? handleToggleCicilanPayment(installmentClient, cic.bulanKe)
+                          : openPaymentModal(installmentClient, cic.bulanKe)
+                      }
+                    >
+                      {cic.sudahBayar ? 'Batalkan' : 'Bayar'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="modal-overlay delete-overlay" onClick={() => setDeleteTarget(null)}>
+          <div className="edit-modal delete-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="delete-icon" aria-hidden="true">!</div>
+            <div>
+              <p className="eyebrow">Hapus data</p>
+              <h2>Hapus klien ini?</h2>
+              <p className="delete-copy">
+                Data <strong>{deleteTarget.namaKlien}</strong> dan riwayat cicilannya akan dihapus permanen.
+              </p>
+            </div>
+            <div className="modal-actions delete-actions">
+              <button type="button" className="secondary" onClick={() => setDeleteTarget(null)}>
+                Batal
+              </button>
+              <button type="button" className="danger" onClick={confirmDelete} disabled={deletingId === deleteTarget._id}>
+                {deletingId === deleteTarget._id ? 'Menghapus...' : 'Ya, Hapus Data'}
               </button>
             </div>
           </div>
@@ -1135,7 +1235,7 @@ export default function HomePage() {
       )}
 
       {paymentTarget && (
-        <div className="modal-overlay" onClick={handleCancelPayment}>
+        <div className="modal-overlay payment-overlay" onClick={handleCancelPayment}>
           <div className="edit-modal" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <div>
@@ -1176,8 +1276,15 @@ export default function HomePage() {
                 <button type="button" className="secondary" onClick={handleCancelPayment}>
                   Batal
                 </button>
-                <button type="button" className="primary" onClick={handleConfirmManualPayment}>
-                  Simpan Pembayaran
+                <button type="button" className="primary" onClick={handleConfirmManualPayment} disabled={isUpdatingCicilan}>
+                  {isUpdatingCicilan ? (
+                    <>
+                      <span className="button-spinner" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    'Simpan Pembayaran'
+                  )}
                 </button>
               </div>
             </div>
