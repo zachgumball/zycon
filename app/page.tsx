@@ -533,6 +533,7 @@ export default function HomePage() {
                   ☰
                 </button>
               </div>
+              <p>Kelola penjualan kredit dan pantau pembayaran dalam satu tempat.</p>
             </div>
           </div>
         </div>
@@ -576,12 +577,12 @@ export default function HomePage() {
 
       {/* Alerts */}
       {error && (
-        <div className="alert alert error" style={{ marginBottom: '24px' }}>
+        <div className="alert alert error" role="alert" style={{ marginBottom: '24px' }}>
           <strong>Terjadi kesalahan:</strong> {error}
         </div>
       )}
       {successMessage && (
-        <div className="alert success" style={{ marginBottom: '24px' }}>
+        <div className="alert success" role="status" aria-live="polite" style={{ marginBottom: '24px' }}>
           <strong>Berhasil!</strong> {successMessage}
         </div>
       )}
@@ -590,7 +591,11 @@ export default function HomePage() {
         {userRole === 'admin' && (
         <div className="panel">
           <div className="panel-header">
-            <h2>Ringkasan Data</h2>
+            <div>
+              <p className="section-kicker">Ikhtisar</p>
+              <h2>Ringkasan Data</h2>
+            </div>
+            <span className="panel-caption">Diperbarui secara langsung</span>
           </div>
 
           <div className="summary-grid">
@@ -671,8 +676,14 @@ export default function HomePage() {
         {userRole === 'admin' && (
         <div className="panel">
           <div className="panel-header">
-            <h2>Daftar Klien</h2>
-            <div className="panel-header .actions" style={{ display: 'flex', gap: '10px' }}>
+            <div>
+              <p className="section-kicker">Portofolio kredit</p>
+              <h2>Daftar Klien</h2>
+              <p className="panel-subtitle">
+                {filteredClients.length} dari {clients.length} klien ditampilkan
+              </p>
+            </div>
+            <div className="actions">
               <button
                 type="button"
                 className="secondary"
@@ -707,6 +718,18 @@ export default function HomePage() {
                 <option value="unpaid">Belum lunas</option>
               </select>
             </div>
+            {(searchTerm || statusFilter !== 'unpaid') && (
+              <button
+                type="button"
+                className="filter-reset"
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('unpaid');
+                }}
+              >
+                Reset filter
+              </button>
+            )}
           </div>
           {isLoading ? (
             <div className="loader">Memuat data...</div>
