@@ -373,7 +373,7 @@ export default function HomePage() {
           .toLowerCase()
           .includes(normalizedSearch);
 
-        const isPaid = (client.cicilan?.length ?? 0) > 0 && calculateRemainingPiutang(client) === 0;
+      const isPaid = (client.cicilan?.length ?? 0) > 0 && calculateRemainingPiutang(client) === 0;
       const statusMatches =
         statusFilter === 'all' ||
         (statusFilter === 'paid' && isPaid) ||
@@ -449,8 +449,8 @@ export default function HomePage() {
       <main className="page-shell login-animated-shell">
         <div className="modal-overlay login-overlay" style={{ zIndex: 100 }}>
           <div className="edit-modal login-card desktop-animated" style={{ maxWidth: '420px' }}>
-            <div className="modal-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', textAlign: 'center' }}>
-              <img src="/logoCounter.png" alt="Logo Zynext Counter" style={{ width: 180, height: 180, objectFit: 'contain' }} />
+            <div className="modal-header login-modal-header">
+              <img src="/logoCounter.png" alt="Logo Zynext Counter" />
               <div>
                 <p className="eyebrow">Zynext Counter</p>
                 <h2>Masuk ke aplikasi</h2>
@@ -458,7 +458,7 @@ export default function HomePage() {
             </div>
 
             <div className="auth-form">
-              {loginError && <div className="alert" style={{ marginBottom: '16px' }}>{loginError}</div>}
+              {loginError && <div className="alert error" role="alert">{loginError}</div>}
 
               <form
                 onSubmit={(e) => {
@@ -476,7 +476,7 @@ export default function HomePage() {
                     placeholder="Masukkan password admin"
                   />
                 </div>
-                <button type="submit" className="primary" style={{ width: '100%', marginTop: '16px' }}>
+                <button type="submit" className="primary login-submit">
                   Masuk sebagai Admin
                 </button>
               </form>
@@ -514,40 +514,43 @@ export default function HomePage() {
       )}
 
       {/* Page Header */}
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-        <div className="page-header-content" style={{ flex: 1, minWidth: 280 }}>
-          <div className="brand-stack" style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: 0 }}>
-            <div className="brand-logo" aria-hidden="true" style={{ background: 'transparent', padding: 0, boxShadow: 'none', border: 'none', borderRadius: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="/logoCounter.png" alt="Logo Zynext Counter" style={{ width: 100, height: 100, objectFit: 'contain' }} />
+      <header className="page-header">
+        <div className="page-header-content">
+          <div className="brand-stack">
+            <div className="brand-logo">
+              <img src="/logoCounter.png" alt="Logo Zynext Counter" />
             </div>
-            <div className="brand-text" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div className="brand-text">
               <div className="brand-title-row">
-                <h1 style={{ margin: 0, lineHeight: 1.2 }}>Zynext Counter</h1>
+                <div>
+                  <h1>Zynext Counter</h1>
+                  <p>Kelola klien dan pantau pembayaran dengan lebih mudah.</p>
+                </div>
                 <button
                   type="button"
                   className="secondary menu-toggle"
                   onClick={() => setShowMobileMenu((current) => !current)}
                   aria-expanded={showMobileMenu}
-                  aria-label="Buka menu pengaturan"
+                  aria-controls="header-menu-items"
+                  aria-label={showMobileMenu ? 'Tutup menu pengaturan' : 'Buka menu pengaturan'}
                 >
-                  ☰
+                  <span aria-hidden="true">{showMobileMenu ? '×' : '☰'}</span>
                 </button>
               </div>
-              <p>Kelola penjualan kredit dan pantau pembayaran dalam satu tempat.</p>
             </div>
           </div>
         </div>
-        <div className="page-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <div className="page-header-actions">
           {userRole === 'admin' && (
             <button
               type="button"
               className="primary"
               onClick={() => setShowAddModal(true)}
             >
-              + Tambah Data
+              + Tambah klien
             </button>
           )}
-          <div className={`header-menu-items${showMobileMenu ? ' is-open' : ''}`}>
+          <div id="header-menu-items" className={`header-menu-items${showMobileMenu ? ' is-open' : ''}`}>
             <button
               type="button"
               className="secondary"
@@ -566,23 +569,24 @@ export default function HomePage() {
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Status Banner */}
       {userRole === 'admin' && (
-        <div className="admin-banner">
-          <span>✓ Anda login sebagai Admin</span>
+        <div className="admin-banner" role="status">
+          <span><span className="admin-status-dot" aria-hidden="true" /> Mode Admin</span>
+          <span>Data dan pembayaran siap dikelola</span>
         </div>
       )}
 
       {/* Alerts */}
       {error && (
-        <div className="alert alert error" role="alert" style={{ marginBottom: '24px' }}>
+        <div className="alert error" role="alert">
           <strong>Terjadi kesalahan:</strong> {error}
         </div>
       )}
       {successMessage && (
-        <div className="alert success" role="status" aria-live="polite" style={{ marginBottom: '24px' }}>
+        <div className="alert success" role="status" aria-live="polite">
           <strong>Berhasil!</strong> {successMessage}
         </div>
       )}
@@ -592,17 +596,31 @@ export default function HomePage() {
         <div className="panel">
           <div className="panel-header">
             <div>
-              <p className="section-kicker">Ikhtisar</p>
-              <h2>Ringkasan Data</h2>
+              <p className="section-kicker">Gambaran usaha</p>
+              <h2>Ringkasan data</h2>
+              <p className="panel-subtitle">Pantau nilai piutang dan progres pembayaran klien.</p>
             </div>
-            <span className="panel-caption">Diperbarui secara langsung</span>
           </div>
 
-          <div className="summary-grid">
-            <div className="summary-item">
+          <div className="summary-grid summary-primary-grid">
+            <div className="summary-item summary-item-primary">
               <span>Klien Aktif</span>
               <strong>{clients.length}</strong>
             </div>
+            <div className="summary-item summary-item-primary">
+              <span>Total Piutang</span>
+              <strong>{formatCurrency(summaryMetrics.totalPiutang)}</strong>
+            </div>
+            <div className="summary-item summary-item-primary">
+              <span>Sisa Piutang</span>
+              <strong>{formatCurrency(summaryMetrics.sisaPiutang)}</strong>
+            </div>
+            <div className="summary-item summary-item-primary">
+              <span>Cicilan Tersisa</span>
+              <strong>{summaryMetrics.totalUnpaidInstallments}</strong>
+            </div>
+          </div>
+          <div className="summary-grid summary-secondary-grid">
             <div className="summary-item">
               <span>Total DP</span>
               <strong>{formatCurrency(clients.reduce((sum, client) => sum + client.dp, 0))}</strong>
@@ -612,33 +630,17 @@ export default function HomePage() {
               <strong>{formatCurrency(clients.reduce((sum, client) => sum + client.hargaAsli, 0))}</strong>
             </div>
             <div className="summary-item">
-              <span>Total Piutang</span>
-              <strong>{formatCurrency(summaryMetrics.totalPiutang)}</strong>
-            </div>
-            <div className="summary-item">
-              <span>Sisa Piutang</span>
-              <strong>{formatCurrency(summaryMetrics.sisaPiutang)}</strong>
-            </div>
-            <div className="summary-item">
               <span>Cicilan Dibayar</span>
               <strong>{summaryMetrics.paidInstallments}/{summaryMetrics.totalInstallments}</strong>
             </div>
             <div className="summary-item">
-              <span>Cicilan Tersisa</span>
-              <strong>{summaryMetrics.totalUnpaidInstallments}</strong>
+              <span>Total Keuntungan</span>
+              <strong>{formatCurrency(summaryMetrics.totalKeuntungan)}</strong>
             </div>
-            {userRole === 'admin' && (
-              <div className="summary-item">
-                <span>Total Keuntungan</span>
-                <strong>{formatCurrency(summaryMetrics.totalKeuntungan)}</strong>
-              </div>
-            )}
-            {userRole === 'admin' && (
-              <div className="summary-item">
-                <span>Rata-rata Tenor</span>
-                <strong>{summaryMetrics.averageTenor} bln</strong>
-              </div>
-            )}
+            <div className="summary-item">
+              <span>Rata-rata Tenor</span>
+              <strong>{summaryMetrics.averageTenor} bulan</strong>
+            </div>
           </div>
         </div>
       )}
@@ -678,9 +680,9 @@ export default function HomePage() {
           <div className="panel-header">
             <div>
               <p className="section-kicker">Portofolio kredit</p>
-              <h2>Daftar Klien</h2>
-              <p className="panel-subtitle">
-                {filteredClients.length} dari {clients.length} klien ditampilkan
+              <h2>Daftar klien</h2>
+              <p className="panel-subtitle" aria-live="polite">
+                Menampilkan {filteredClients.length} dari {clients.length} klien
               </p>
             </div>
             <div className="actions">
@@ -732,14 +734,38 @@ export default function HomePage() {
             )}
           </div>
           {isLoading ? (
-            <div className="loader">Memuat data...</div>
+            <div className="loader" role="status">
+              <span className="spinner" aria-hidden="true" />
+              <span>Memuat data klien...</span>
+            </div>
           ) : clients.length === 0 ? (
-            <p className="empty-state">Belum ada data klien. Tambahkan klien baru untuk memulai.</p>
+            <div className="empty-state">
+              <span className="empty-state-icon" aria-hidden="true">＋</span>
+              <h3 className="empty-state-title">Belum ada klien</h3>
+              <p>Tambahkan data klien pertama untuk mulai mencatat penjualan kredit.</p>
+              <button type="button" className="primary" onClick={() => setShowAddModal(true)}>
+                Tambah klien
+              </button>
+            </div>
           ) : filteredClients.length === 0 ? (
-            <p className="empty-state">Tidak ada data yang cocok dengan pencarian atau filter.</p>
+            <div className="empty-state">
+              <h3 className="empty-state-title">Klien tidak ditemukan</h3>
+              <p>Coba ubah kata kunci atau reset filter untuk melihat klien lainnya.</p>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('unpaid');
+                }}
+              >
+                Reset pencarian
+              </button>
+            </div>
           ) : (
             <div className="table-wrapper">
               <table className="client-table">
+                <caption className="visually-hidden">Daftar klien kredit dan status pembayarannya</caption>
                 <thead>
                   <tr>
                     <th>No</th>
@@ -824,8 +850,9 @@ export default function HomePage() {
                                     type="button"
                                     className="secondary action-button"
                                     onClick={() => client._id && handleToggleCicilanRow(client._id)}
+                                    aria-expanded={isExpanded}
                                   >
-                                    {isExpanded ? 'Cicilan' : 'Cicilan'}
+                                    {isExpanded ? 'Tutup cicilan' : 'Jadwal cicilan'}
                                   </button>
                                 </div>
                                 <div className="mobile-actions">
